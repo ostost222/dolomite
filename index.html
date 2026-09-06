@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>베네치아 · 돌로미티 · 밀라노 10일</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E9EEEC; --panel:#F7F9F8; --ink:#1B2A2F; --ink-2:#4A5C62; --ink-3:#8A9AA0; --line:#D3DCDA;
+    --venice:#2F5F8F; --east:#3D6E52; --west:#7B8C3A; --milan:#A86A2C; --lugano:#8C3D5A;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:"Noto Sans KR",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+
+  .app{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;height:100vh}
+
+  /* ---------- left: day rail ---------- */
+  .rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+  .rail-head{padding:28px 24px 18px}
+  .rail-head h1{font-size:26px;font-weight:900;letter-spacing:-.02em;line-height:1.2}
+  .rail-head p{color:var(--ink-2);font-size:13px;margin-top:6px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:0 24px 14px;font-size:12px;color:var(--ink-2)}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;background:var(--c)}
+  .days{overflow-y:auto;flex:1;padding:0 12px 24px}
+  .day-btn{display:grid;grid-template-columns:52px 1fr;gap:10px;align-items:start;width:100%;text-align:left;border:0;background:none;padding:11px 12px;border-radius:10px;cursor:pointer;font:inherit;color:var(--ink);position:relative}
+  .day-btn:hover{background:#EDF2F0}
+  .day-btn.active{background:var(--ink);color:#fff}
+  .day-btn.active .d-sub{color:#C5D1D5}
+  .day-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .d-date{font-weight:700;font-size:14px;line-height:1.3}
+  .d-date small{display:block;font-weight:400;font-size:11px;opacity:.7}
+  .d-title{font-weight:500;font-size:14px;line-height:1.35}
+  .d-sub{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .day-btn::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--c)}
+  .all-btn{grid-template-columns:1fr;margin-bottom:6px}
+  .all-btn::before{display:none}
+
+  /* ---------- right: map + detail ---------- */
+  .main{display:grid;grid-template-rows:minmax(300px,48%) 1fr;overflow:hidden}
+  #map{width:100%;height:100%;background:#DCE5E2}
+  .detail{overflow-y:auto;padding:26px 34px 40px;background:var(--bg)}
+  .detail-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px 18px;margin-bottom:8px}
+  .detail-head h2{font-size:22px;font-weight:900;letter-spacing:-.01em}
+  .detail-head .stay{font-size:13px;color:var(--ink-2)}
+  .tip{font-size:13px;color:var(--ink-2);padding:10px 14px;border-left:3px solid var(--c);background:var(--panel);border-radius:0 8px 8px 0;margin:10px 0 20px;max-width:640px}
+
+  .cols{display:grid;grid-template-columns:1.4fr 1fr;gap:30px;align-items:start}
+  @media (max-width:1100px){.cols{grid-template-columns:1fr}}
+
+  .tl{list-style:none;position:relative;padding-left:22px;max-width:620px}
+  .tl::before{content:"";position:absolute;left:5px;top:6px;bottom:6px;width:2px;background:var(--line)}
+  .tl li{position:relative;padding:0 0 16px 0}
+  .tl li::before{content:"";position:absolute;left:-22px;top:7px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--ink-3)}
+  .tl li.stop::before{border-color:var(--c);background:var(--c);cursor:pointer}
+  .tl .t{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .tl .w{font-size:15px;font-weight:500}
+  .tl .w button{font:inherit;font-weight:700;background:none;border:0;padding:0;color:var(--ink);cursor:pointer;border-bottom:1.5px solid var(--c)}
+  .tl .w button:hover{color:var(--c)}
+  .tl .n{font-size:13px;color:var(--ink-2);margin-top:2px}
+
+  .side h3{font-size:13px;font-weight:700;color:var(--ink-2);margin:0 0 8px}
+  .moves{list-style:none;font-size:13.5px;border-top:1px solid var(--line)}
+  .moves li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .moves li span:last-child{color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .mode{margin:18px 0 0;font-size:13.5px;color:var(--ink-2)}
+  .mode b{color:var(--ink);font-weight:700}
+
+  /* overview */
+  .ov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:10px;max-width:900px}
+  .ov{padding:14px 16px;border-radius:10px;background:var(--panel);border-top:4px solid var(--c);cursor:pointer;border-left:0;border-right:0;border-bottom:0;text-align:left;font:inherit;color:var(--ink)}
+  .ov:hover{background:#fff}
+  .ov b{display:block;font-size:14px}
+  .ov span{font-size:12px;color:var(--ink-2)}
+  .ov em{display:block;font-style:normal;font-size:12px;color:var(--ink-3);margin-top:6px}
+
+  /* leaflet tweaks */
+  .leaflet-container{font-family:inherit}
+  .pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center}
+  .pin b{transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700}
+  .leaflet-popup-content{font-size:13px;line-height:1.45;margin:10px 12px}
+  .leaflet-popup-content b{font-size:14px}
+  .leaflet-popup-content-wrapper{border-radius:8px}
+
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto}
+    .rail{border-right:0;border-bottom:1px solid var(--line);max-height:none}
+    .rail-head{padding:20px 18px 12px}
+    .days{display:flex;gap:6px;overflow-x:auto;padding:0 14px 12px}
+    .day-btn{min-width:150px;grid-template-columns:1fr;padding:10px 12px 10px 14px}
+    .d-title,.d-sub{display:none}
+    .all-btn{margin:0;min-width:70px}
+    .main{grid-template-rows:320px auto;height:auto}
+    .detail{padding:20px 18px 40px}
+  }
+  @media (prefers-reduced-motion:no-preference){
+    .day-btn,.ov{transition:background .15s}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="rail-head">
+      <h1>베네치아 · 돌로미티 · 밀라노</h1>
+      <p>2026.10.02 – 10.11 · 10일</p>
+    </div>
+    <div class="legend">
+      <span style="--c:var(--venice)">베네치아</span>
+      <span style="--c:var(--east)">돌로미티 동부</span>
+      <span style="--c:var(--west)">돌로미티 서부</span>
+      <span style="--c:var(--milan)">밀라노 · 호수</span>
+      <span style="--c:var(--lugano)">루가노 · 출국</span>
+    </div>
+    <nav class="days" id="days"></nav>
+  </aside>
+
+  <section class="main">
+    <div id="map" role="region" aria-label="여행 경로 지도"></div>
+    <div class="detail" id="detail"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+const PHASE = {venice:'#2F5F8F', east:'#3D6E52', west:'#7B8C3A', milan:'#A86A2C', lugano:'#8C3D5A'};
+
+// 장소 좌표
+const P = {
+  vce:   {n:'베네치아 마르코 폴로 공항', ll:[45.5047,12.3466]},
+  mestre:{n:'메스트레 숙소', ll:[45.4825,12.2318]},
+  marco: {n:'산마르코 광장 · 두칼레 궁전', ll:[45.4342,12.3385]},
+  rialto:{n:'리알토 다리', ll:[45.4380,12.3359]},
+  misur: {n:'미주리나 호수', ll:[46.5826,12.2544]},
+  trecime:{n:'트레치메 디 라바레도 (아우론초 산장)', ll:[46.6122,12.2962]},
+  cortina:{n:'코르티나 담페초', ll:[46.5378,12.1359]},
+  braies:{n:'브라이에스 호수', ll:[46.6943,12.0854]},
+  dobbi: {n:'도비아코 호수', ll:[46.7030,12.2193]},
+  crist: {n:'몬테 크리스탈로 (손 포르카 산장)', ll:[46.5682,12.1856]},
+  gardena:{n:'파소 가르데나', ll:[46.5500,11.8094]},
+  seceda:{n:'세체다 케이블카', ll:[46.5765,11.6749]},
+  ortisei:{n:'오르티세이', ll:[46.5754,11.6702]},
+  siusi: {n:'알페 디 시우시 케이블카', ll:[46.5729,11.6713]},
+  bolzano:{n:'볼차노 에르베 광장', ll:[46.4998,11.3526]},
+  carezza:{n:'카레짜 호수', ll:[46.4092,11.5751]},
+  riva:  {n:'리바 델 가르다', ll:[45.8893,10.8431]},
+  centrale:{n:'밀라노 첸트랄레', ll:[45.4871,9.2048]},
+  duomo: {n:'밀라노 두오모', ll:[45.4641,9.1919]},
+  sforza:{n:'스포르체스코 성', ll:[45.4705,9.1793]},
+  brera: {n:'브레라 지구', ll:[45.4720,9.1878]},
+  como:  {n:'코모 산 조반니역', ll:[45.8091,9.0727]},
+  bellagio:{n:'벨라조', ll:[45.9773,9.2625]},
+  navigli:{n:'나빌리오 운하', ll:[45.4477,9.1696]},
+  lugano:{n:'루가노 (스위스)', ll:[46.0037,8.9511]},
+  mxp:   {n:'밀라노 말펜사 공항', ll:[45.6227,8.7282]},
+};
+
+// s: 일정 (t 시간, w 내용, p 장소키(있으면 지도 연동), n 메모)
+const DAYS = [
+ {d:'10/02', dow:'금', ph:'venice', title:'심야 도착', stay:'베네치아 메스트레 (1/2박)', mode:'공항버스 / 택시',
+  tip:'심야 도착이니 체크인 시간 늦어도 되는지 숙소에 미리 확인.',
+  s:[{t:'21:00',w:'공항 도착',p:'vce'},{t:'21:40',w:'메스트레 호텔 체크인 & 휴식',p:'mestre'}],
+  m:[['공항 → 메스트레','20분']]},
+ {d:'10/03', dow:'토', ph:'venice', title:'베네치아 본섬', stay:'베네치아 메스트레 (2/2박)', mode:'기차 (Regionale) 편도 10~15분',
+  tip:'산마르코 대성당·두칼레 궁전은 아침 첫 타임이 줄이 가장 짧음.',
+  s:[{t:'07:30',w:'호텔 조식'},{t:'08:30',w:'산마르코 광장 · 대성당 · 두칼레 궁전 · 탄식의 다리',p:'marco'},{t:'12:30',w:'점심 — 리알토 다리 주변',p:'rialto'},{t:'14:00',w:'대운하 바포레토 · 곤돌라 · 골목 탐방',n:'바포레토 1일권이 여러 번 타면 이득'},{t:'18:30',w:'저녁 — 대운하 야경 레스토랑 후 메스트레 복귀'}],
+  m:[['메스트레 ↔ 본섬','10~15분']]},
+ {d:'10/04', dow:'일', ph:'east', title:'돌로미티 동부 진입', stay:'코르티나 담페초 (1/2박)', mode:'공항택시 → 렌트카',
+  tip:'트레치메 유료도로(아우론초 산장 주차)는 성수기 사전 예약 권장. 일요일 영업 Hertz 지점 확인.',
+  s:[{t:'07:00',w:'조식 & 체크아웃'},{t:'08:00',w:'공항 Hertz 차량 인수',p:'vce'},{t:'10:30',w:'미주리나 호수 조망 · 포토존',p:'misur'},{t:'12:30',w:'점심 — 미주리나 호숫가 식당'},{t:'13:30',w:'트레치메 둘레길 트레킹',p:'trecime',n:'산장 기준 한 바퀴 약 3~4시간'},{t:'18:00',w:'저녁 (티롤 특선) & 체크인',p:'cortina'}],
+  m:[['메스트레 → 공항','20분'],['공항 → 미주리나','2시간 15분'],['미주리나 → 트레치메','20분'],['트레치메 → 코르티나','45분']]},
+ {d:'10/05', dow:'월', ph:'east', title:'호수 & 전망대', stay:'코르티나 담페초 (2/2박)', mode:'렌트카',
+  tip:'브라이에스 호수는 이른 아침 방문 필수 — 주차는 온라인 사전 예약.',
+  s:[{t:'07:30',w:'호텔 조식'},{t:'08:30',w:'브라이에스 호수 산책',p:'braies'},{t:'10:30',w:'도비아코 호수 탐방',p:'dobbi'},{t:'12:30',w:'점심 — 도비아코 마을 알프스식'},{t:'14:00',w:'몬테 크리스탈로 전망대',p:'crist'},{t:'16:00',w:'코르티나 시내 구경 · 휴식',p:'cortina'},{t:'18:30',w:'저녁 — 코르티나 와인바 & 레스토랑'}],
+  m:[['코르티나 → 브라이에스','50분'],['브라이에스 → 도비아코','25분'],['도비아코 → 크리스탈로','30분'],['크리스탈로 → 코르티나','15분']]},
+ {d:'10/06', dow:'화', ph:'west', title:'동부 → 서부 횡단', stay:'오르티세이 / 볼차노 (1/2박)', mode:'렌트카 / 케이블카',
+  tip:'파소 가르데나 정상 주차장은 무료. 세체다는 정상에서 15분 더 걸어야 대표 절경.',
+  s:[{t:'07:00',w:'조식 & 체크아웃'},{t:'08:00',w:'파소 가르데나 고개 드라이브',p:'gardena'},{t:'10:30',w:'세체다 케이블카 · 능선 조망',p:'seceda'},{t:'12:30',w:'점심 — 오르티세이 시내 또는 세체다 산장'},{t:'14:00',w:'오르티세이 티롤풍 거리 산책 & 체크인',p:'ortisei'},{t:'18:30',w:'저녁 — 서부 현지 레스토랑'}],
+  m:[['코르티나 → 파소 가르데나','1시간'],['파소 가르데나 → 오르티세이','30분'],['오르티세이 → 숙소','10~20분']]},
+ {d:'10/07', dow:'수', ph:'west', title:'알페 디 시우시 & 볼차노', stay:'오르티세이 / 볼차노 (2/2박)', mode:'렌트카 / 케이블카',
+  tip:'카레짜 호수의 에메랄드빛은 오후 햇살에서 가장 선명.',
+  s:[{t:'07:00',w:'호텔 조식'},{t:'08:00',w:'알페 디 시우시 케이블카 & 대초원 트레킹',p:'siusi'},{t:'12:00',w:'점심 — 볼차노 에르베 광장 야외 테라스',p:'bolzano'},{t:'14:00',w:'카레짜 호수 둘레길',p:'carezza'},{t:'16:00',w:'볼차노 시내 구경'},{t:'18:30',w:'저녁 — 볼차노 시내 후 숙소 복귀'}],
+  m:[['오르티세이 → 알페 디 시우시','케이블카 15분'],['오르티세이 → 볼차노','40분'],['볼차노 → 카레짜','40분'],['카레짜 → 숙소','45분']]},
+ {d:'10/08', dow:'목', ph:'milan', title:'가르다 호수 → 밀라노', stay:'밀라노 시내 (1/3박)', mode:'렌트카 → 도보 / 지하철',
+  tip:'밀라노 시내 ZTL(통행 제한 구역) 주의. 17:00 이전 첸트랄레역 차량 반납.',
+  s:[{t:'07:00',w:'조식 & 체크아웃'},{t:'08:00',w:'리바 델 가르다 호숫가 · 올드타운 산책',p:'riva'},{t:'11:30',w:'점심 — 리바 호숫가 레스토랑'},{t:'13:00',w:'밀라노 이동 · 숙소 체크인'},{t:'~17:00',w:'첸트랄레역 차량 반납',p:'centrale'},{t:'18:30',w:'저녁 — 밀라노 시내'}],
+  m:[['서부 숙소 → 리바 델 가르다','1시간 30분'],['리바 델 가르다 → 밀라노','2시간 30분']]},
+ {d:'10/09', dow:'금', ph:'milan', title:'밀라노 시내', stay:'밀라노 시내 (2/3박)', mode:'지하철 / 도보',
+  tip:'두오모 루프탑 티켓 사전 예약 필수 — 아침 첫 타임 추천.',
+  s:[{t:'07:30',w:'호텔 조식'},{t:'08:30',w:'두오모 루프탑 & 성당 내부',p:'duomo'},{t:'12:30',w:'점심 — 갤러리아 근처'},{t:'14:00',w:'스포르체스코 성',p:'sforza',n:'안뜰은 무료, 뒤편 셈피오네 공원'},{t:'16:00',w:'브레라 거리 산책',p:'brera'},{t:'18:30',w:'저녁 — 브레라 예술 지구'}],
+  m:[['시내 이동','지하철/도보 10~20분']]},
+ {d:'10/10', dow:'토', ph:'milan', title:'코모 호수 · 벨라조', stay:'밀라노 시내 (3/3박)', mode:'기차 + 페리',
+  tip:'벨라조행 쾌속 페리는 시간표가 적으니 미리 확인.',
+  s:[{t:'07:00',w:'호텔 조식'},{t:'08:00',w:'기차로 코모 이동',p:'como'},{t:'09:30',w:'페리로 벨라조 · 구시가지 산책',p:'bellagio'},{t:'12:30',w:'점심 — 벨라조 호숫가 테라스'},{t:'14:30',w:'페리 → 코모 → 밀라노 복귀'},{t:'18:30',w:'저녁 — 나빌리오 운하 아페리티보',p:'navigli'}],
+  m:[['첸트랄레 → 코모','기차 40분'],['코모 → 벨라조','쾌속 페리 45분'],['벨라조 → 밀라노','복귀 약 1시간 30분']]},
+ {d:'10/11', dow:'일', ph:'lugano', title:'루가노 & 출국', stay:'—', mode:'기차 / Malpensa Express',
+  tip:'스위스 국경 통과 — 여권 지참. 공항 최소 3시간 전 도착.',
+  s:[{t:'07:00',w:'조식 & 체크아웃'},{t:'08:00',w:'기차로 루가노 이동',p:'centrale'},{t:'09:30',w:'루가노 호숫가 · 구시가지',p:'lugano'},{t:'12:30',w:'점심 — 루가노 호숫가'},{t:'14:00',w:'밀라노 복귀 → Malpensa Express'},{t:'17:00',w:'말펜사 공항 출국 수속',p:'mxp'}],
+  m:[['밀라노 → 루가노','기차 1시간 15분'],['루가노 → 첸트랄레','기차 1시간 15분'],['첸트랄레 → 말펜사','공항철도 50분']]},
+];
+
+// ---------- map ----------
+let map=null, layer=null;
+try{
+  map = L.map('map',{zoomControl:true, scrollWheelZoom:false}).setView([46.1,11.0],7);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{
+    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:18
+  }).addTo(map);
+  layer = L.layerGroup().addTo(map);
+}catch(e){
+  document.getElementById('map').innerHTML='<div style="padding:24px;color:#4A5C62;font-size:14px">지도는 인터넷에 연결되어 있을 때 표시됩니다. 아래 일정은 오프라인에서도 볼 수 있어요.</div>';
+}
+
+function pin(color, label){
+  return L.divIcon({className:'', iconSize:[26,26], iconAnchor:[13,26], popupAnchor:[0,-24],
+    html:`<div class="pin" style="background:${color}"><b>${label}</b></div>`});
+}
+
+function draw(dayIdx){
+  if(!map) return;
+  layer.clearLayers();
+  const bounds = [];
+  const days = dayIdx===null ? DAYS : [DAYS[dayIdx]];
+  // 전체 경로: 각 날의 정차지 순서대로 phase 색 선
+  let prev = null;
+  days.forEach((day,i)=>{
+    const color = PHASE[day.ph];
+    const stops = day.s.filter(x=>x.p);
+    const pts = stops.map(x=>P[x.p].ll);
+    if(dayIdx===null && prev) L.polyline([prev, pts[0]],{color,weight:2,opacity:.5,dashArray:'4 6'}).addTo(layer);
+    L.polyline(pts,{color,weight:3,opacity:.85}).addTo(layer);
+    stops.forEach((x,j)=>{
+      const label = dayIdx===null ? day.d.slice(3) : String(j+1);
+      L.marker(P[x.p].ll,{icon:pin(color,label)})
+        .bindPopup(`<b>${P[x.p].n}</b><br>${day.d}(${day.dow}) ${x.t} · ${x.w}${x.n?'<br><span style="color:#666">'+x.n+'</span>':''}`)
+        .addTo(layer);
+      bounds.push(P[x.p].ll);
+    });
+    prev = pts[pts.length-1];
+  });
+  if(bounds.length) map.fitBounds(bounds,{padding:[36,36], maxZoom: dayIdx===null?7:12});
+}
+
+// ---------- day rail ----------
+const nav = document.getElementById('days');
+nav.innerHTML = `<button class="day-btn all-btn" data-i="all"><span class="d-title">전체 경로 보기</span></button>` +
+  DAYS.map((d,i)=>`<button class="day-btn" data-i="${i}" style="--c:${PHASE[d.ph]}">
+    <span class="d-date">${d.d}<small>${d.dow}</small></span>
+    <span><span class="d-title">${d.title}</span><span class="d-sub">${d.stay}</span></span></button>`).join('');
+nav.addEventListener('click',e=>{
+  const b = e.target.closest('.day-btn'); if(!b) return;
+  select(b.dataset.i==='all'?null:+b.dataset.i);
+});
+
+// ---------- detail ----------
+const detail = document.getElementById('detail');
+function render(i){
+  if(i===null){
+    detail.innerHTML = `<div class="detail-head"><h2>전체 일정 한눈에</h2><span class="stay">날짜를 누르면 그날의 시간대별 동선과 지도를 볼 수 있어요</span></div>
+    <div class="ov-grid">${DAYS.map((d,k)=>`<button class="ov" data-i="${k}" style="--c:${PHASE[d.ph]}"><b>${d.d} (${d.dow}) ${d.title}</b><span>${d.stay}</span><em>${d.mode}</em></button>`).join('')}</div>`;
+    detail.querySelectorAll('.ov').forEach(b=>b.addEventListener('click',()=>select(+b.dataset.i)));
+    return;
+  }
+  const d = DAYS[i], c = PHASE[d.ph];
+  detail.innerHTML = `
+    <div class="detail-head"><h2>${d.d} (${d.dow}) ${d.title}</h2><span class="stay">숙박 · ${d.stay}</span></div>
+    <div class="tip" style="--c:${c}">${d.tip}</div>
+    <div class="cols" style="--c:${c}">
+      <ul class="tl">${d.s.map(x=>`<li class="${x.p?'stop':''}"><div class="t">${x.t}</div>
+        <div class="w">${x.p?`<button data-p="${x.p}">${x.w}</button>`:x.w}</div>${x.n?`<div class="n">${x.n}</div>`:''}</li>`).join('')}</ul>
+      <div class="side">
+        <h3>이동 구간</h3>
+        <ul class="moves">${d.m.map(([a,b])=>`<li><span>${a}</span><span>${b}</span></li>`).join('')}</ul>
+        <p class="mode"><b>이동 수단</b> ${d.mode}</p>
+      </div>
+    </div>`;
+  detail.querySelectorAll('.tl button').forEach(b=>b.addEventListener('click',()=>{
+    const ll = P[b.dataset.p].ll;
+    if(!map) return;
+    map.flyTo(ll, 13, {duration:.8});
+    layer.eachLayer(l=>{ if(l.getLatLng && l.getLatLng().lat===ll[0] && l.getLatLng().lng===ll[1]) l.openPopup(); });
+  }));
+}
+
+function select(i){
+  nav.querySelectorAll('.day-btn').forEach(b=>b.classList.toggle('active', (i===null?'all':String(i))===b.dataset.i));
+  draw(i); render(i);
+  if(window.innerWidth<=860) document.getElementById('map').scrollIntoView({behavior:'smooth',block:'start'});
+}
+select(null);
+</script>
+</body>
+</html>
