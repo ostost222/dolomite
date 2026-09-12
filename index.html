@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>베네치아 · 돌로미티 · 밀라노 11일 — 상세 일정</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E9EEEC; --panel:#F7F9F8; --ink:#1B2A2F; --ink-2:#4A5C62; --ink-3:#8A9AA0; --line:#D3DCDA;
+    --venice:#2F5F8F; --east:#3D6E52; --west:#7B8C3A; --milan:#A86A2C; --lugano:#8C3D5A; --warn:#B4452B;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:"Noto Sans KR",system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased}
+  button{font:inherit;color:inherit}
+
+  .app{display:grid;grid-template-columns:300px 1fr;grid-template-rows:100vh;height:100vh}
+
+  /* rail */
+  .rail{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;overflow:hidden}
+  .rail-head{padding:26px 22px 14px}
+  .rail-head h1{font-size:24px;font-weight:900;letter-spacing:-.02em;line-height:1.2}
+  .rail-head p{color:var(--ink-2);font-size:13px;margin-top:6px}
+  .plans{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 22px 12px}
+  .plan-btn{border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;text-align:left;cursor:pointer;line-height:1.3}
+  .plan-btn b{display:block;font-size:13px}
+  .plan-btn span{display:block;font-size:11px;color:var(--ink-2)}
+  .plan-btn.active{background:var(--ink);border-color:var(--ink);color:#fff}
+  .plan-btn.active span{color:#C5D1D5}
+  .plan-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .legend{display:flex;flex-wrap:wrap;gap:6px 14px;padding:0 22px 12px;font-size:12px;color:var(--ink-2)}
+  .legend span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:5px;vertical-align:-1px;background:var(--c)}
+  .days{overflow-y:auto;flex:1;padding:0 10px 22px}
+  .day-btn{display:grid;grid-template-columns:50px 1fr;gap:10px;align-items:start;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:10px;cursor:pointer;position:relative}
+  .day-btn:hover{background:#EDF2F0}
+  .day-btn.active{background:var(--ink);color:#fff}
+  .day-btn.active .d-sub{color:#C5D1D5}
+  .day-btn:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .d-date{font-weight:700;font-size:14px;line-height:1.3}
+  .d-date small{display:block;font-weight:400;font-size:11px;opacity:.7}
+  .d-title{font-weight:500;font-size:14px;line-height:1.35}
+  .d-sub{font-size:12px;color:var(--ink-3);margin-top:2px}
+  .day-btn::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:3px;border-radius:3px;background:var(--c)}
+  .util{grid-template-columns:1fr}
+  .util::before{display:none}
+  .rail-sep{height:1px;background:var(--line);margin:6px 12px 8px}
+
+  /* main */
+  .main{display:grid;grid-template-rows:minmax(280px,42%) 1fr;overflow:hidden}
+  #map{width:100%;height:100%;background:#DCE5E2}
+  .detail{overflow-y:auto;padding:24px 32px 48px}
+  .detail-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 18px}
+  .detail-head h2{font-size:22px;font-weight:900;letter-spacing:-.01em}
+  .detail-head .stay{font-size:13px;color:var(--ink-2)}
+  .summary{font-size:14px;color:var(--ink-2);margin:6px 0 14px;max-width:700px}
+  .alert{font-size:13.5px;padding:10px 14px;border-left:3px solid var(--warn);background:#FBEFEA;border-radius:0 8px 8px 0;margin:0 0 14px;max-width:700px}
+  .alert b{color:var(--warn)}
+  .tip{font-size:13.5px;color:var(--ink-2);padding:10px 14px;border-left:3px solid var(--c);background:var(--panel);border-radius:0 8px 8px 0;margin:0 0 20px;max-width:700px}
+
+  .cols{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(260px,1fr);gap:28px;align-items:start}
+  @media (max-width:1150px){.cols{grid-template-columns:1fr}}
+
+  /* timeline with expandable stops */
+  .tl{list-style:none;position:relative;padding-left:22px}
+  .tl::before{content:"";position:absolute;left:5px;top:8px;bottom:8px;width:2px;background:var(--line)}
+  .tl li{position:relative;padding:0 0 14px}
+  .tl li::before{content:"";position:absolute;left:-22px;top:9px;width:12px;height:12px;border-radius:50%;background:var(--bg);border:2px solid var(--ink-3)}
+  .tl li.stop::before{border-color:var(--c);background:var(--c)}
+  .t{font-size:12px;color:var(--ink-3);font-variant-numeric:tabular-nums}
+  .w{font-size:15px;font-weight:700}
+  .w .dur{font-weight:400;font-size:12px;color:var(--ink-3);margin-left:8px}
+  details.card{background:var(--panel);border-radius:10px;border:1px solid var(--line);margin-top:6px}
+  details.card summary{list-style:none;cursor:pointer;padding:10px 14px;font-size:13.5px;color:var(--ink-2);display:flex;justify-content:space-between;gap:10px;align-items:center}
+  details.card summary::-webkit-details-marker{display:none}
+  details.card summary::after{content:"펼치기";font-size:12px;color:var(--c);white-space:nowrap}
+  details.card[open] summary::after{content:"접기"}
+  details.card summary:focus-visible{outline:2px solid var(--ink);border-radius:10px}
+  .card-body{padding:0 14px 14px;font-size:13.5px}
+  .card-body p{margin:0 0 8px}
+  .kv{display:grid;grid-template-columns:64px 1fr;gap:4px 10px;font-size:13px;margin:8px 0}
+  .kv dt{color:var(--ink-3)}
+  .kv dd{color:var(--ink)}
+  .badge{display:inline-block;font-size:11px;padding:2px 8px;border-radius:20px;background:#fff;border:1px solid var(--line);color:var(--ink-2);margin:2px 4px 0 0}
+  .badge.must{background:var(--c);border-color:var(--c);color:#fff}
+  .goto{background:none;border:0;padding:0;cursor:pointer;color:var(--ink);border-bottom:1.5px solid var(--c)}
+  .goto:hover{color:var(--c)}
+
+  .ph{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;border-radius:8px;margin:0 0 10px;background:#DCE5E2}
+  .ph-wrap{position:relative;margin:0 0 10px}
+  .ph-wrap .cred{position:absolute;right:8px;bottom:8px;font-size:10px;color:#fff;background:rgba(0,0,0,.45);padding:2px 6px;border-radius:4px}
+  .ph-miss{display:block;padding:18px 14px;border:1px dashed var(--line);border-radius:8px;font-size:13px;color:var(--ink-2);text-decoration:none;margin:0 0 10px;text-align:center}
+  .thumb{width:54px;height:40px;object-fit:cover;border-radius:6px;flex:none;background:#DCE5E2}
+  details.card summary{align-items:center}
+  details.card summary .sm{display:flex;align-items:center;gap:10px;min-width:0}
+  .more{font-size:12px;color:var(--c);text-decoration:none;border-bottom:1px solid var(--c)}
+  .side h3{font-size:13px;font-weight:700;color:var(--ink-2);margin:0 0 8px}
+  .side section{margin-bottom:22px}
+  .moves{list-style:none;font-size:13.5px;border-top:1px solid var(--line)}
+  .moves li{display:flex;justify-content:space-between;gap:12px;padding:8px 0;border-bottom:1px solid var(--line)}
+  .moves li span:last-child{color:var(--ink-3);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .plain{font-size:13.5px;color:var(--ink-2)}
+  .plain b{color:var(--ink)}
+  ul.dots{padding-left:18px;font-size:13.5px;color:var(--ink-2)}
+  ul.dots li{margin-bottom:4px}
+
+  /* overview + checklist */
+  .ov-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px;max-width:960px;margin-top:12px}
+  .ov{padding:14px 16px;border-radius:10px;background:var(--panel);border:0;border-top:4px solid var(--c);cursor:pointer;text-align:left}
+  .ov:hover{background:#fff}
+  .ov b{display:block;font-size:14px}
+  .ov span{font-size:12px;color:var(--ink-2)}
+  .ov em{display:block;font-style:normal;font-size:12px;color:var(--ink-3);margin-top:6px}
+  .chk{list-style:none;max-width:760px}
+  .chk li{display:grid;grid-template-columns:22px 1fr;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font-size:14px;align-items:start}
+  .chk input{width:18px;height:18px;margin-top:3px;accent-color:var(--ink)}
+  .chk label{cursor:pointer}
+  .chk small{display:block;color:var(--ink-2);font-size:12.5px;margin-top:2px}
+  .chk .when{font-weight:700;color:var(--ink)}
+  .chk-h{font-size:14px;font-weight:700;margin:22px 0 4px;color:var(--ink-2)}
+
+
+  /* journey strip (overview) */
+  .strip{display:flex;gap:6px;flex-wrap:wrap;margin:12px 0 18px}
+  .strip .seg{flex:1 1 120px;min-width:120px;padding:10px 12px;border-radius:10px;background:var(--panel);border-left:5px solid var(--c)}
+  .strip .seg b{display:block;font-size:14px}
+  .strip .seg span{font-size:12px;color:var(--ink-2)}
+  .ovlist{list-style:none;max-width:900px}
+  .ovlist li{display:grid;grid-template-columns:58px 1fr;gap:12px;padding:10px 12px;border-radius:10px;cursor:pointer;border-left:4px solid var(--c);background:var(--panel);margin-bottom:6px}
+  .ovlist li:hover{background:#fff}
+  .ovlist .od{font-weight:700;font-size:14px;line-height:1.3}
+  .ovlist .od small{display:block;font-weight:400;font-size:11px;color:var(--ink-3)}
+  .ovlist .ot{font-weight:700;font-size:14px}
+  .ovlist .oi{font-size:13px;color:var(--ink-2);margin-top:2px;line-height:1.5}
+  .ovlist .os{font-size:12px;color:var(--ink-3);margin-top:2px}
+
+  /* day summary chips */
+  .chips{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 14px}
+  .chip{font-size:12.5px;padding:4px 10px;border-radius:20px;background:var(--panel);border:1px solid var(--line);color:var(--ink-2)}
+  .chip.hot{background:#FBEFEA;border-color:#E8C4B8;color:var(--warn);font-weight:700}
+
+  /* stop cards */
+  .stops{list-style:none;position:relative;padding-left:0}
+  .stop{display:grid;grid-template-columns:52px 1fr;gap:10px;margin-bottom:10px}
+  .stop .tm{font-size:12.5px;font-weight:700;color:var(--ink-2);padding-top:12px;font-variant-numeric:tabular-nums;text-align:right;padding-right:4px;border-right:2px solid var(--line)}
+  .stop.is-stop .tm{border-right-color:var(--c)}
+  .sc{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .sc-head{display:grid;grid-template-columns:auto 1fr;gap:12px;padding:10px 12px;align-items:center}
+  .sc-head .ico{font-size:22px;width:30px;text-align:center}
+  .sc-head .thumb{width:76px;height:56px;border-radius:8px}
+  .sc-title{font-size:15px;font-weight:700;line-height:1.3}
+  .sc-title button{font:inherit;font-weight:700;background:none;border:0;padding:0;color:var(--ink);cursor:pointer;border-bottom:1.5px solid var(--c);text-align:left}
+  .sc-title button:hover{color:var(--c)}
+  .sc-sub{font-size:12.5px;color:var(--ink-2);margin-top:3px;line-height:1.45}
+  .sc-sub b{color:var(--ink);font-weight:600}
+  .sc-tags{margin-top:5px}
+  .sc-body{border-top:1px solid var(--line);padding:10px 12px 12px;font-size:13.5px}
+  .sc-body p{margin:0 0 8px}
+  .sc details summary{list-style:none;cursor:pointer;font-size:12.5px;color:var(--c);padding:6px 12px 8px;font-weight:600}
+  .sc details summary::-webkit-details-marker{display:none}
+  .sc details summary::after{content:' ▾'}
+  .sc details[open] summary::after{content:' ▴'}
+  .sc-head.nothumb{grid-template-columns:1fr}
+  .daynav{display:flex;justify-content:space-between;gap:10px;margin:26px 0 0;max-width:760px}
+  .daynav button{flex:1;padding:12px 14px;border-radius:10px;border:1px solid var(--line);background:var(--panel);cursor:pointer;font-size:14px;text-align:left}
+  .daynav button:last-child{text-align:right}
+  .daynav button:hover{background:#fff}
+  .daynav small{display:block;font-size:11px;color:var(--ink-3)}
+  @media (max-width:860px){
+    .stop{grid-template-columns:44px 1fr;gap:8px}
+    .sc-head .thumb{width:60px;height:46px}
+    .strip .seg{flex:1 1 45%;min-width:0}
+  }
+  /* leaflet */
+  .leaflet-container{font-family:inherit}
+  .pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center}
+  .pin b{transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700}
+  .pin.big{border-width:3px;box-shadow:0 3px 10px rgba(0,0,0,.35)}
+  .pin.big b{font-size:12px}
+  .daylabel{white-space:nowrap;font-size:11px;font-weight:700;background:#fff;border:1.5px solid;border-radius:12px;padding:1px 7px;box-shadow:0 1px 4px rgba(0,0,0,.15);pointer-events:none}
+  .mapbtn a{width:auto!important;padding:0 10px;font-size:12px;font-weight:700;line-height:30px;color:var(--ink)}
+  .leaflet-control-layers{font-size:12px;border-radius:8px}
+  .leaflet-control-layers-list label{white-space:nowrap}
+  .leaflet-popup-content{font-size:13px;line-height:1.45;margin:10px 12px}
+  .leaflet-popup-content-wrapper{border-radius:8px}
+
+  @media (max-width:860px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto 1fr;height:auto}
+    .rail{border-right:0;border-bottom:1px solid var(--line)}
+    .rail-head{padding:18px 16px 10px}
+    .legend{padding:0 16px 10px}
+    .plans{padding:0 16px 10px}
+    .days{display:flex;gap:6px;overflow-x:auto;padding:0 12px 12px}
+    .day-btn{min-width:140px;grid-template-columns:1fr;padding:10px 12px 10px 14px}
+    .d-title,.d-sub{display:none}
+    .util .d-title{display:block;font-size:13px}
+    .util{min-width:88px;display:flex;align-items:center}
+    .rail-sep{display:none}
+    .main{grid-template-rows:300px auto;height:auto}
+    .detail{padding:18px 16px 48px}
+    .kv{grid-template-columns:56px 1fr}
+  }
+  @media (prefers-reduced-motion:no-preference){.day-btn,.ov{transition:background .15s}}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="rail">
+    <div class="rail-head">
+      <h1>베네치아 · 돌로미티 · 밀라노</h1>
+      <p>2026.10.02 – 10.12 · 11일 · 베네치아 3박 · 돌로미티 동2+서2 · 밀라노 3</p>
+    </div>
+    <div class="plans" id="plans"></div>
+    <div class="legend">
+      <span style="--c:var(--venice)">베네치아</span>
+      <span style="--c:var(--east)">돌로미티 동부</span>
+      <span style="--c:var(--west)">돌로미티 서부</span>
+      <span style="--c:var(--milan)">밀라노 · 호수</span>
+      <span style="--c:var(--lugano)">출국</span>
+    </div>
+    <nav class="days" id="days"></nav>
+  </aside>
+  <section class="main">
+    <div id="map" role="region" aria-label="여행 경로 지도"></div>
+    <div class="detail" id="detail"></div>
+  </section>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+
+/* =========================================================
+   직접 사진 넣기 — 아래 따옴표 안에 이미지 주소를 붙여넣으세요.
+   비워두면 위키피디아에서 자동으로 찾습니다.
+   예) misur:'https://example.com/misurina.jpg',
+   GitHub에 올린 사진이면 상대경로도 됩니다: trecime:'img/trecime.jpg',
+   ========================================================= */
+const MY_PHOTOS={
+  vce:'', mestre:'', slucia:'', marco:'', rialto:'',
+  misur:'', trecime:'', cortina:'', braies:'', dobbi:'', falz:'', torri:'',
+  gardena:'', seceda:'', ortisei:'', siusi:'', bolzano:'', carezza:'',
+  riva:'', centrale:'', duomo:'', sforza:'', brera:'', como:'', bellagio:'', navigli:'',
+  lugano:'', mxp:''
+};
+const PHASE={venice:'#2F5F8F',east:'#3D6E52',west:'#7B8C3A',milan:'#A86A2C',lugano:'#8C3D5A'};
+
+const P={
+  vce:{n:'베네치아 마르코 폴로 공항',ll:[45.5047,12.3466],wk:'Venice Marco Polo Airport',it:"Aeroporto di Venezia-Tessera"},
+  mestre:{n:'Filzi Luxe Stay Venice (메스트레)',ll:[45.4838,12.2330],wk:'Mestre',it:"Mestre"},
+  slucia:{n:'베네치아 산타 루치아역',ll:[45.4410,12.3210],wk:'Venezia Santa Lucia railway station',it:"Stazione di Venezia Santa Lucia"},
+  ducale:{n:'두칼레 궁전',ll:[45.4337,12.3403],wk:"Doge's Palace",it:"Palazzo Ducale (Venezia)"},
+  accademia:{n:'아카데미아 미술관',ll:[45.4313,12.3283],wk:'Gallerie dell\'Accademia',it:"Gallerie dell'Accademia"},
+  guggenheim:{n:'페기 구겐하임 컬렉션',ll:[45.4308,12.3315],wk:'Peggy Guggenheim Collection',it:"Collezione Peggy Guggenheim"},
+  grassi:{n:'팔라초 그라시',ll:[45.4335,12.3305],wk:'Palazzo Grassi',it:"Palazzo Grassi"},
+  gondola:{n:'곤돌라 (바치노 오르세올로)',ll:[45.4344,12.3373],wk:'Gondola',it:"Gondola"},
+  marco:{n:'산마르코 광장',ll:[45.4342,12.3385],wk:'Piazza San Marco',it:"Piazza San Marco"},
+  rialto:{n:'리알토 다리',ll:[45.4380,12.3359],wk:'Rialto Bridge',it:"Ponte di Rialto"},
+  misur:{n:'미주리나 호수',ll:[46.5826,12.2544],wk:'Lake Misurina',it:"Lago di Misurina"},
+  trecime:{n:'아우론초 산장 (트레치메 출발점)',ll:[46.6122,12.2962],wk:'Tre Cime di Lavaredo',it:"Tre Cime di Lavaredo"},
+  cortina:{n:'코르티나 담페초',ll:[46.5378,12.1359],wk:'Cortina d\'Ampezzo',it:"Cortina d'Ampezzo"},
+  braies:{n:'브라이에스 호수',ll:[46.6943,12.0854],wk:'Lago di Braies',it:"Lago di Braies"},
+  dobbi:{n:'도비아코 호수',ll:[46.7030,12.2193],wk:'Lake Dobbiaco',it:"Lago di Dobbiaco"},
+  falz:{n:'파소 팔차레고 · 라가주오이 케이블카',ll:[46.5190,12.0090],wk:'Lagazuoi',it:"Lagazuoi"},
+  torri:{n:'친퀘 토리 리프트 (바이 데 도네스)',ll:[46.5140,12.0350],wk:'Cinque Torri',it:"Cinque Torri"},
+  gardena:{n:'파소 가르데나',ll:[46.5500,11.8094],wk:'Gardena Pass',it:"Passo Gardena"},
+  seceda:{n:'세체다 케이블카 (오르티세이)',ll:[46.5765,11.6749],wk:'Seceda',it:"Seceda"},
+  ortisei:{n:'오르티세이',ll:[46.5754,11.6702],wk:'Urtijëi',it:"Ortisei"},
+  siusi:{n:'알페 디 시우시 케이블카 (오르티세이)',ll:[46.5729,11.6713],wk:'Seiser Alm',it:"Alpe di Siusi"},
+  bolzano:{n:'볼차노 에르베 광장',ll:[46.4998,11.3526],wk:'Bolzano',it:"Bolzano"},
+  carezza:{n:'카레짜 호수',ll:[46.4092,11.5751],wk:'Lake Carezza',it:"Lago di Carezza"},
+  riva:{n:'리바 델 가르다',ll:[45.8893,10.8431],wk:'Riva del Garda',it:"Riva del Garda"},
+  centrale:{n:'밀라노 첸트랄레',ll:[45.4871,9.2048],wk:'Milano Centrale railway station',it:"Stazione di Milano Centrale"},
+  duomo:{n:'밀라노 두오모',ll:[45.4641,9.1919],wk:'Milan Cathedral',it:"Duomo di Milano"},
+  sforza:{n:'스포르체스코 성',ll:[45.4705,9.1793],wk:'Sforza Castle',it:"Castello Sforzesco"},
+  brera:{n:'브레라 지구',ll:[45.4720,9.1878],wk:'Pinacoteca di Brera',it:"Pinacoteca di Brera"},
+  como:{n:'코모 산 조반니역',ll:[45.8091,9.0727],wk:'Como',it:"Como"},
+  bellagio:{n:'벨라조',ll:[45.9773,9.2625],wk:'Bellagio, Lombardy',it:"Bellagio (Italia)"},
+  navigli:{n:'나빌리오 운하',ll:[45.4477,9.1696],wk:'Navigli',it:"Navigli (Milano)"},
+  lugano:{n:'루가노',ll:[46.0037,8.9511],wk:'Lugano',it:"Lugano"},
+  sirmione:{n:'시르미오네 (가르다 호수 남단)',ll:[45.4930,10.6080],wk:'Sirmione',it:"Sirmione"},
+  hoteltc:{n:'B&B Hotel Passo Tre Croci (숙소)',ll:[46.5567,12.2022],wk:'Tre Croci Pass',it:"Passo Tre Croci"},
+  trecroci:{n:'파소 트레 크로치',ll:[46.5567,12.2020],wk:'Tre Croci Pass',it:"Passo Tre Croci"},
+  pratopiazza:{n:'프라토 피아차 고원',ll:[46.6480,12.1560],wk:'Prato Piazza',it:"Prato Piazza"},
+  landro:{n:'란드로 호수 전망',ll:[46.6260,12.2280],wk:'Lago di Landro',it:"Lago di Landro"},
+  galleria:{n:'비토리오 에마누엘레 2세 갤러리아',ll:[45.4656,9.1900],wk:'Galleria Vittorio Emanuele II',it:"Galleria Vittorio Emanuele II"},
+  cenacolo:{n:'산타 마리아 델레 그라치에 (최후의 만찬)',ll:[45.4660,9.1710],wk:'Santa Maria delle Grazie, Milan',it:"Chiesa di Santa Maria delle Grazie (Milano)"},
+  murano:{n:'무라노',ll:[45.4586,12.3520],wk:'Murano',it:"Murano"},
+  burano:{n:'부라노',ll:[45.4853,12.4167],wk:'Burano',it:"Burano"},
+  villacarlotta:{n:'빌라 카를로타 (트레메초)',ll:[45.9848,9.2385],wk:'Villa Carlotta',it:"Villa Carlotta"},
+  menaggio:{n:'메나조',ll:[46.0210,9.2390],wk:'Menaggio',it:"Menaggio"},
+  qcterme:{n:'QC Terme Dolomiti (포차 디 파사)',ll:[46.4248,11.6878],wk:'Pozza di Fassa',it:"Pozza di Fassa"},
+  giau:{n:'파소 지아우',ll:[46.4836,12.0546],wk:'Giau Pass',it:"Passo Giau"},
+  pordoi:{n:'사스 포르도이 케이블카 (파소 포르도이)',ll:[46.4877,11.8127],wk:'Sass Pordoi',it:"Sass Pordoi"},
+  funes:{n:'발 디 푸네스 — 산타 막달레나',ll:[46.6428,11.7196],wk:'Villnöß',it:"Funes (Italia)"},
+  sella:{n:'파소 셀라',ll:[46.5090,11.7580],wk:'Sella Pass',it:"Passo Sella"},
+  comocity:{n:'코모 시내 · 호숫가',ll:[45.8130,9.0830],wk:'Como',it:"Como"},
+  napoleone:{n:'몬테나폴레오네 거리',ll:[45.4688,9.1950],wk:'Via Monte Napoleone',it:"Via Monte Napoleone"},
+  mxp:{n:'밀라노 말펜사 공항',ll:[45.6227,8.7282],wk:'Milan Malpensa Airport',it:"Aeroporto di Milano-Malpensa"},
+};
+
+// s: {t,w,p,dur,d(설명 HTML),info:{항목:값},tags:[],alt}
+
+
+/* ===== 확정안: 베네치아 IN · 밀라노 OUT (2026.10.02–10.12) ===== */
+const D_DUOMO={d:'10/11',dow:'일',ph:'milan',sun:'일출 07:36 · 일몰 18:42',title:'밀라노 두오모 · 갤러리아 · 스포르체스코',stay:'밀라노 시내 (3/3박)',mode:'지하철 · 도보',
+ sum:'일요일이라 광장이 붐비니 두오모 루프탑(엘리베이터) 첫 타임과 성당 내부, 갤러리아, 점심 후 스포르체스코 성 공원에서 쉬고 브레라에서 저녁. 전부 도보 15분 안쪽.',
+ tip:'루프탑은 <b>엘리베이터 티켓</b>을 duomomilano.it에서 09:00 첫 타임으로 예매(엘리베이터 후 계단 조금). 어깨·무릎 가리기. <b>최후의 만찬</b>은 cenacolovinciano.org에서 보통 2~3개월 전 예매 — 잔여 있으면 15:15 전후.',
+ s:[
+  {t:'09:00',w:'두오모 루프탑 · 성당 내부 (09:00 첫 타임)',p:'duomo',dur:'2.5시간',d:'<p>루프탑 첨탑 사이 산책 → 내부 스테인드글라스. 광장 호객(팔찌·비둘기 모이) 주의.</p>',info:{운행:'09:00~19:00',예약:'루프탑 엘리베이터 시간권'},tags:['예약 필수']},
+  {t:'11:30',w:'갤러리아 · 점심',p:'galleria',dur:'1.5시간',d:'<p>바닥 황소 모자이크에서 뒤꿈치 돌리기. 갤러리아 안 식당은 비싸니 스칼라 극장 쪽 골목으로 두 블록.</p>'},
+  {t:'13:30',w:'스포르체스코 성 · 셈피오네 공원',p:'sforza',dur:'1.5시간',d:'<p>안뜰 무료(07:00~19:30). 박물관(€5)엔 미켈란젤로 론다니니 피에타. 성 뒤 공원 벤치에서 커피, 평화의 문까지 평지.</p>',info:{안뜰:'무료'}},
+  {t:'15:15',w:'(선택) 최후의 만찬',p:'cenacolo',dur:'1시간',d:'<p>성에서 도보 12분. 15분 관람, 시간 엄수. 예약 없이는 불가.</p>',tags:['선택','수개월 전 예약']},
+  {t:'16:30',w:'브레라 지구 · 아페리티보 · 저녁',p:'brera',dur:'',d:'<p>돌길 골목·카페. 아페리티보 후 저녁.</p>'}
+ ],
+ m:[['두오모 → 스포르체스코 성','도보 15분 / M1 1정거장'],['성 → 최후의 만찬','도보 12분'],['성 → 브레라','도보 10분']],
+ food:['아페리티보','리소토 알라 밀라네제, 코톨레타'],
+ pack:['편한 신발','두오모 복장 규정'],
+ extra:['스칼라 극장 박물관(갤러리아 뒤, 1시간)','두오모 옆 노베첸토 미술관 — 창에서 두오모 뷰']};
+
+const D_SHOP_OUT={d:'10/12',dow:'월',ph:'lugano',sun:'일출 07:36 · 일몰 18:42',title:'몬테나폴레오네 · 출국',stay:'—',mode:'도보 · Malpensa Express',
+ sum:'마지막 날은 여유 있게. 패션 거리 산책과 브런치, 공항철도로 말펜사. 항공편 시각에 맞춰 역산하세요.',
+ tip:'출발 3시간 전 도착 기준: Malpensa Express 52분, 첸트랄레 출발 30분 간격(예: 20:00 비행 → 16:00 공항 → 15:00 첸트랄레). 월요일이라 매장은 10시부터 정상 영업. 체크아웃 후 짐은 숙소 보관 또는 첸트랄레 보관소.',
+ s:[
+  {t:'10:00',w:'몬테나폴레오네 거리 산책 · 브런치',p:'napoleone',dur:'3시간',d:'<p>콰드릴라테로 델라 모다(몬테나폴레오네·스피가 거리). 카페 코바 등. 선물은 두오모 옆 리나셴테 백화점(월요일 영업, 옥상 카페에서 두오모 뷰)이 한 번에 편합니다.</p>'},
+  {t:'14:00',w:'Malpensa Express → 말펜사',p:'mxp',dur:'52분',d:'<p>€13, 앱·자판기. 터미널(T1/T2) 확인. 면세 환급은 세관 확인 후.</p>',info:{요금:'€13',간격:'30분'},tags:['3시간 전 도착']}
+ ],
+ m:[['첸트랄레 → 말펜사','Malpensa Express 52분']],
+ food:['마지막 에스프레소·파네토네'],
+ pack:['면세 서류','여권 손에'],
+ extra:[]};
+
+
+const DAYS_A=[
+{d:'10/02',dow:'금',ph:'venice',sun:'일몰 18:52',title:'베네치아 심야 도착',stay:'Filzi Luxe Stay 메스트레 (1/3박)',mode:'우버',
+ sum:'22:00 착륙, 입국·수하물 후 우버로 메스트레 숙소. 도착은 23시 넘어서니 이동만 하고 바로 휴식.',
+ tip:'숙소(Filzi Luxe Stay Venice – Spa & Double Parking)는 메스트레역 근처라 내일부터 기차 이용이 편합니다. 23시 넘는 셀프 체크인 방법(키박스·코드)을 호스트에게 미리 받아두세요. 우버는 도착층 밖 지정 승차 구역, 요금 약 €35~45.',
+ s:[
+  {t:'22:00',w:'마르코 폴로 공항 착륙',p:'vce',dur:'45~60분',d:'<p>입국심사·수하물 40~60분. 우버 앱은 착륙 후 바로 호출(픽업 포인트는 앱 안내). 대안: 도착층 앞 택시(정액 €40 내외).</p>',tags:['우버 앱·eSIM 미리','셀프 체크인 코드']},
+  {t:'23:15',w:'Filzi Luxe Stay 체크인 · 휴식',p:'mestre',d:'<p>공항에서 20분. 숙소 주차 2대 가능(월요일 렌트카 짐 싣기 편함).</p>',info:{내일:'07:00 조식 후 08:00 기차 (피곤하면 08:30)'}}
+ ],
+ m:[['공항 → 메스트레 숙소','우버 20분']],
+ food:['비행기 안에서 해결, 숙소 근처 편의점'],
+ pack:['우버·eSIM 사전 준비','여권·숙소 코드'],
+ extra:[]},
+
+{d:'10/03',dow:'토',ph:'venice',sun:'일출 07:11 · 일몰 18:50',title:'산마르코 · 두칼레 · 곤돌라 · 팔라초 그라시',stay:'Filzi Luxe Stay 메스트레 (2/3박)',mode:'기차 + 바포레토 + 곤돌라',
+ sum:'산마르코 지구를 아침 첫 타임에 집중해서 보고(대성당·두칼레 궁전), 곤돌라를 탄 뒤 리알토 점심. 오후는 바포레토로 대운하를 내려가 팔라초 그라시, 아카데미아 다리 노을로 마무리.',
+ alert:'<b>대성당·두칼레 궁전 모두 온라인 시간권 예약</b>(토요일은 현장 줄 1시간+). 대성당 09:30 첫 슬롯, 두칼레 10:15 슬롯 추천. 두칼레는 내부 계단이 많지만 엘리베이터 있음(직원에게 요청). 베네치아 입장료(contributo di accesso) 해당일 여부 cda.ve.it 확인 — 메스트레 숙박자는 면제 등록.',
+ tip:'바포레토는 <b>48시간권(€35)</b>이 이틀 24시간권보다 저렴하고 내일 섬까지 커버. 곤돌라는 공식 요금 30분 €90(19시 이후 €110), 최대 5명 합승 — 바치노 오르세올로(산마르코 광장 뒤)에서 타면 조용한 골목 수로 코스. 팔라초 그라시는 전시 교체기엔 휴관이니 출발 전 확인(토요일 정상 개관).',
+ s:[
+  {t:'08:00',w:'기차 → 산타 루치아 → 바포레토 1번',p:'slucia',dur:'50분',d:'<p>숙소에서 메스트레역 도보 5분. Regionale 12분(개찰 필수). 역 앞 선착장에서 1번을 타고 대운하를 천천히 내려가 산 자카리아 하차(35분) — 이동 자체가 관광, 앞쪽 야외석.</p>',info:{바포레토:'48시간권 €35 (2026 확인)'}},
+  {t:'09:30',w:'산마르코 대성당 (첫 슬롯)',p:'marco',dur:'45분',d:'<p>황금 모자이크는 오전 빛이 좋음. 팔라 도로(제단) €5 추가, 테라스(계단 있음)는 선택. 복장 규정: 어깨·무릎.</p>',info:{예약:'basilicasanmarco.it 시간권',복장:'어깨·무릎'},tags:['예약 필수']},
+  {t:'10:15',w:'두칼레 궁전 · 탄식의 다리',p:'ducale',dur:'1.5시간',d:'<p>황금 계단 → 대평의회실(틴토레토 천국) → 탄식의 다리를 건너 감옥. 엘리베이터 이용 가능. 무료 오디오가이드 앱.</p>',info:{예약:'palazzoducale.visitmuve.it 시간권',소요:'1.5시간'},tags:['예약 필수']},
+  {t:'12:00',w:'곤돌라 30분',p:'gondola',dur:'40분',d:'<p>바치노 오르세올로 승강장(광장 서쪽 뒤편). 공식 요금 €90/30분, 5명까지. 흥정 불필요, 노래는 별도.</p>',info:{요금:'€90 / 30분 (공식)'}},
+  {t:'12:45',w:'점심 — 리알토 시장 뒷골목',p:'rialto',dur:'1.5시간',d:'<p>메르체리에 거리로 도보 15분. 어시장 뒷골목의 먹물 파스타·해산물 리소토 또는 바카로 치케티. 다리 위 테라스 식당은 비쌈.</p>'},
+  {t:'14:30',w:'바포레토 1번 → 산 사무엘레 · 팔라초 그라시',p:'grassi',dur:'1.5시간',d:'<p>리알토에서 1번으로 3정거장. 피노 컬렉션 현대미술 전시(안도 다다오 리노베이션). 계단 없이 관람 가능. 카페 테라스에서 대운하.</p>',info:{운영:'수~월 10:00~19:00, 화 휴관',입장:'€15 내외 (전시별)'},tags:['전시 확인']},
+  {t:'16:15',w:'아카데미아 다리 · 도르소두로 골목 · 카페',p:'accademia',dur:'1.5시간',d:'<p>그라시에서 도보 5분. 다리 위에서 살루테 성당 방향 대운하 최고 뷰. 자테레 산책로 벤치에서 휴식.</p>'},
+  {t:'18:00',w:'노을 · 저녁 — 도르소두로/자테레',dur:'',d:'<p>일몰 18:50 아카데미아 다리 또는 자테레. 저녁 후 자테레/아카데미아 선착장에서 1·2번으로 역, 메스트레행 기차 10~15분 간격.</p>'}
+ ],
+ m:[['메스트레 ↔ 산타 루치아','기차 12분'],['역 → 산 자카리아','바포레토 1번 35분'],['리알토 → 산 사무엘레','바포레토 1번 10분'],['아카데미아 → 역','바포레토 20분']],
+ food:['먹물 파스타, 해산물 리소토, 치케티+스프리츠','도르소두로: 오스테리아 저녁'],
+ pack:['예약 QR 3개(대성당·두칼레·그라시)','소매치기 주의','현금 소액(화장실 €1.5)'],
+ extra:['산마르코 종탑 엘리베이터(예약, 15분) — 두칼레 전에 여유 있으면','산 조르조 마조레 종탑(바포레토 2번 1정거장, 엘리베이터) — 광장 정면 뷰']},
+
+{d:'10/04',dow:'일',ph:'venice',sun:'일출 07:12 · 일몰 18:48',title:'아카데미아 · 구겐하임 · 부라노 · 무라노',stay:'Filzi Luxe Stay 메스트레 (3/3박)',mode:'기차 + 바포레토',
+ sum:'오전은 도르소두로의 두 미술관(아카데미아 · 페기 구겐하임), 점심 후 바포레토로 석호를 건너 부라노·무라노. 섬은 평지이고 앉아서 이동하는 시간이 많아 오후는 편합니다.',
+ alert:'<b>아카데미아 미술관은 일요일 08:15~19:15</b>, 구겐하임은 10:00~18:00(화 휴관). 둘 다 온라인 예매하면 줄 없음. 부라노행 12번은 일요일 오후 붐비니 15:30 전에 복귀 편 탑승. 내일 07:00 공항 Hertz 인수 후 숙소로 돌아와 짐을 싣고 출발하니 저녁은 메스트레에서 가볍게, 짐은 미리.',
+ tip:'역 → 아카데미아는 바포레토 1·2번 20분. 미술관 두 곳은 도보 5분 거리. 구겐하임 → 폰다멘테 노베는 도보 30분 or 바포레토 환승 40분 — 택시보트(€70+)는 비추천, 1번으로 산 마르코 → 4.1번 환승이 무난. 부라노 점심은 12:30 전 자리.',
+ s:[
+  {t:'08:00',w:'기차 → 바포레토 → 아카데미아',p:'slucia',dur:'40분',d:'<p>숙소 → 메스트레역 도보 5분 → 산타 루치아 → 2번(급행) 아카데미아 하차.</p>'},
+  {t:'08:45',w:'아카데미아 미술관',p:'accademia',dur:'1.5시간',d:'<p>베네치아 회화의 정수 — 벨리니·조르조네(폭풍)·티치아노·베로네세(레위가의 향연). 1층 위주로 보면 계단 최소. 오디오가이드 추천.</p>',info:{운영:'일 08:15~19:15',입장:'€15 (온라인 예매)'},tags:['예약 권장']},
+  {t:'10:30',w:'페기 구겐하임 컬렉션',p:'guggenheim',dur:'1시간 15분',d:'<p>도보 5분. 미완의 팔라초 안 20세기 컬렉션(피카소·마그리트·폴록), 대운하 쪽 조각 테라스. 단층이라 편함. 카페 정원.</p>',info:{운영:'10:00~18:00, 화 휴관',입장:'€16 (온라인)'},tags:['예약 권장']},
+  {t:'12:00',w:'점심 — 자테레 / 살루테',dur:'1시간',d:'<p>자테레 산책로 호숫가 테라스, 또는 살루테 성당 앞. 오후 이동 전 가볍게.</p>'},
+  {t:'13:00',w:'바포레토 → 폰다멘테 노베 → 부라노',p:'burano',dur:'1시간 10분',d:'<p>살루테 → 1번 산 마르코 → 4.1번 폰다멘테 노베 → 12번 부라노(45분). 갑판 자리, 석호 풍경.</p>'},
+  {t:'14:15',w:'부라노 — 색색 골목 · 레이스 · 카페',p:'burano',dur:'1시간 30분',d:'<p>원색 집들과 기울어진 종탑, 레이스 공방. 부라넬리 쿠키. 평지.</p>'},
+  {t:'15:45',w:'무라노 — 유리공방 · 산 도나토',p:'murano',dur:'1시간',d:'<p>12번으로 35분. 공방 시연(무료·팁), 산 도나토 성당 모자이크 바닥. 유리박물관은 시간 되면.</p>'},
+  {t:'17:00',w:'폰다멘테 노베 → 메스트레 · 저녁 · 짐 정리',p:'slucia',dur:'1시간',d:'<p>4.1/4.2번으로 역(20분) → 기차. 메스트레에서 가벼운 저녁, 내일 07:00 공항 출발 준비.</p>'}
+ ],
+ m:[['역 → 아카데미아','바포레토 2번 20분'],['살루테 → 폰다멘테 노베','바포레토 환승 40분'],['폰다멘테 노베 → 부라노','12번 45분'],['부라노 → 무라노 → 역','12번 35분 + 4.1번 20분']],
+ food:['자테레: 호숫가 테라스 파스타','부라노: 리소토 디 고, 부라넬리'],
+ pack:['미술관 예약 QR','갑판 바람 — 겉옷','내일 짐 미리'],
+ extra:['살루테 성당(구겐하임 도보 5분, 무료) 10분','피곤하면 무라노 생략 → 부라노에서 바로 복귀']},
+
+{d:'10/05',dow:'월',ph:'east',sun:'일출 07:21 · 일몰 18:42',title:'베네치아 → 코르티나 · 친퀘 토리 · 라가주오이',stay:'B&B Hotel Passo Tre Croci (동부 1/2박) · 조식만',mode:'렌터카 + 리프트·케이블카',
+ sum:'07:00 공항에서 차를 받아 숙소에서 짐을 싣고 08:30 출발. 코르티나를 지나 팔차레고 고개의 리프트 두 개(친퀘 토리·라가주오이)로 걷기 없이 정상 전망을 보고, 16시 트레 크로치 고개 위 숙소 체크인. 숙소는 조식만 있으니 저녁은 코르티나 시내(15분)에서 먹고 올라갑니다.',
+ alert:'<b>친퀘 토리 리프트는 10/11까지, 라가주오이 케이블카는 10/18까지</b> 운행(강풍·눈 시 중단). 두 승강장은 차로 10분 거리. 산장 점심은 현금.',
+ tip:'공항 Hertz 07:00 개점 확인(월요일). 인수 → 숙소 왕복 40분 → 08:30 출발. A27 → 벨루노 → 코르티나 2시간, 시내를 지나 팔차레고 방향 25분. 숙소(B&B Hotel Passo Tre Croci)는 코르티나 동쪽 고개 위 1,805m, 시내에서 15분 — 저녁은 시내에서 먹거나 코르티나 슈퍼(Cooperativa di Cortina 등)에서 사서 방에서. 고개 밤길은 어둡고 사슴이 나오니 서행.',
+ s:[
+  {t:'07:00',w:'공항 Hertz 차량 인수 → 숙소 짐 싣기',p:'vce',dur:'1.5시간',d:'<p>국제운전면허증·국내면허·여권·예약 카드. 흠집 촬영. 숙소로 돌아와 체크아웃·짐 적재.</p>',tags:['차량 상태 촬영']},
+  {t:'08:30',w:'메스트레 출발 → 코르티나 → 바이 데 도네스',p:'cortina',dur:'2.5시간',d:'<p>A27 → 벨루노 → SS51. 코르티나 10:30 통과, 팔차레고 방향으로 25분.</p>'},
+  {t:'11:00',w:'친퀘 토리 리프트',p:'torri',dur:'1.5시간',d:'<p>바이 데 도네스(1,889m) → 친퀘 토리 산장(2,255m) 체어리프트 10분. 정상역 바로 앞이 다섯 바위탑. 산장 테라스 커피, 여유 있으면 평탄 산책로 20분(1차 대전 야외 박물관).</p>',info:{운행:'~10/11, 09:00~17:00',요금:'왕복 약 €20',주차:'하부 무료'},tags:['걷기 최소']},
+  {t:'12:45',w:'라가주오이 케이블카 · 정상 점심 · 여유',p:'falz',dur:'2시간',d:'<p>팔차레고 고개(2,105m) → 라가주오이 산장(2,752m) 3분. 테라스 360° 파노라마(토파네·마르몰라다), 산장 레스토랑 점심. 서두를 것 없이 테라스에서 커피까지.</p>',info:{운행:'~10/18, 09:00~17:00 (상행 막차 16:40)',요금:'왕복 약 €30',주차:'고개 무료'},tags:['걷기 없음','바람 강함']},
+  {t:'15:15',w:'코르티나 시내 — 장보기 · 아페리티보 · 이른 저녁',p:'cortina',dur:'2.5시간',d:'<p>팔차레고에서 30분. 코르소 이탈리아 산책, 슈퍼에서 아침·간식거리, 17:30 이른 저녁(카네덜리·카수쿨레). 숙소에 저녁이 없으니 시내에서 먹고 올라가는 게 편합니다.</p>',info:{저녁:'시내 식당 또는 슈퍼 테이크아웃'}},
+  {t:'18:00',w:'B&B Hotel Passo Tre Croci 체크인 · 휴식',p:'hoteltc',dur:'',d:'<p>시내에서 15분, 고개 정상 1,805m. 넓은 방·테라스에서 크리스탈로·소라피스 조망. 내일 07:15 출발이면 트레치메까지 35분이라 여유.</p>',info:{조식:'07:00~ (트레치메 전 먹고 출발)',저녁:'없음 — 호텔 레스토랑 운영 여부 현장 확인'},tags:['조식만']}
+ ],
+ m:[['공항 ↔ 메스트레 숙소','20분 × 2'],['메스트레 → 코르티나','2시간'],['코르티나 → 친퀘 토리(바이 데 도네스)','25분'],['친퀘 토리 → 팔차레고','10분'],['팔차레고 → 코르티나','30분'],['코르티나 → 트레 크로치 숙소','15분']],
+ food:['산장 점심: 굴라시·폴렌타·카네덜리','코르티나: 카수쿨레, 티롤 와인'],
+ pack:['정상 체감 0~5℃ — 패딩·장갑·모자','멀미약(고갯길)','현금(산장)'],
+ extra:['날씨·컨디션 따라 라가주오이 하나만 타도 충분','저녁을 방에서 해결하려면 코르티나 슈퍼에서 빵·치즈·샐러드·와인']},
+
+{d:'10/06',dow:'화',ph:'east',sun:'일출 07:22 · 일몰 18:40',title:'트레치메(아침) · 미주리나 · 브라이에스 보트',stay:'B&B Hotel Passo Tre Croci (동부 2/2박) · 조식만',mode:'렌터카',
+ sum:'숙소가 트레 크로치 고개라 트레치메까지 35분. 조식 후 유료도로로 아우론초 산장에 올라 아침 햇빛이 정면으로 드는 트레치메를 한산하게 본 뒤, 미주리나 호숫가 카페, 도비아코 호수 정차, 브라이에스에서 호숫가 점심과 보트. 돌아오는 길에 코르티나에서 저녁 먹고 숙소로.',
+ alert:'<b>트레치메 유료도로는 온라인 주차 예약 없이 진입 불가.</b> 2026년 승용차 €40(12시간), 약 30일 전 오픈(seethedolomites.com), 차량 번호판 입력(전날까지 수정 가능). <b>08:00~08:30 입장 슬롯</b> 예약. 아우론초 산장 카페 08:30 오픈. 도로는 10월 하순 눈으로 조기 폐쇄 가능 — 전날 확인. 아침 2,333m는 체감 0℃ 안팎.',
+ tip:'숙소 07:00 조식 → 07:30 출발 → 미주리나 07:45(안토르노 반영 정차) → 유료도로 → 08:15 산장. 주차장 앞이 전망대, 걷지 않아도 됨. 브라이에스 보트는 예약 불가·현금, 9~10월 10:00~17:00(운영 여부 현장 확인). 브라이에스 차량 통제는 9/15에 끝나 P4까지 진입 가능. 브라이에스 → 코르티나 오는 길에 란드로 호수 전망(도로변 무료)에 5분 정차.',
+ s:[
+  {t:'07:30',w:'숙소 출발 → 안토르노 호수 정차',p:'misur',dur:'25분',d:'<p>고개에서 미주리나까지 15분, 유료도로 입구 직전 안토르노 호수 — 이른 아침 트레치메 반영 5분 정차.</p>',tags:['걷기 없음']},
+  {t:'08:15',w:'트레치메 — 아우론초 산장 전망 (아침)',p:'trecime',dur:'2시간',d:'<p>유료도로 20분 → 아우론초 산장(2,333m). 08:30 카페 오픈, 테라스에서 아침 커피·스트루델. 세 봉우리 남벽에 아침 빛이 정면으로 들어와 하루 중 가장 좋은 각도, 사람도 거의 없음. 원하면 라바레도 산장까지 평탄 왕복 1시간.</p>',info:{요금:'€40 / 12h, 예약 필수 (08:00~08:30 슬롯)',산장:'08:30~17:00'},tags:['예약 필수','방풍·보온','아침 추천']},
+  {t:'10:30',w:'미주리나 호수 — 카페 · 호숫가',p:'misur',dur:'1시간',d:'<p>해발 1,754m. 남쪽 끝(그랜드호텔 앞)에서 트레치메 반영. 호숫가 카페에서 몸 녹이고, 원하면 둘레길 평지 40분.</p>',info:{주차:'유료(하루 약 €14)'},tags:['평지']},
+  {t:'11:45',w:'도비아코 호수 정차',p:'dobbi',dur:'15분',d:'<p>란드로 계곡을 내려와 호숫가 주차, 데크에서 10분. 걷기 거의 없음.</p>',info:{주차:'유료 소규모'},tags:['걷기 없음']},
+  {t:'12:30',w:'브라이에스 호수 — 호숫가 점심 · 보트 · 산책',p:'braies',dur:'3.5시간',d:'<p>도비아코 호수에서 30분. 해발 1,496m. 호숫가 호텔 레스토랑에서 점심 후 보트하우스에서 노 젓는 보트 30~60분 — 호수 가운데서 크로다 델 베코를 올려다보기. 이후 보트하우스 앞 대표컷, 동쪽 호숫가 평탄 산책 30분. 오후 3시 이후는 한산.</p>',info:{보트:'30분 €19 / 60분 €29, 현금, ~17:00',주차:'P4 유료(3시간 €15) 또는 P3 €12/일',통제:'10월엔 없음'},tags:['보트','평지']},
+  {t:'16:00',w:'란드로 호수 전망 정차 → 코르티나',p:'landro',dur:'1시간',d:'<p>SS51 도로변 무료 주차, 걷지 않고 크리스탈로 산군 5분. 17:00 코르티나 도착.</p>',tags:['걷기 없음']},
+  {t:'17:30',w:'저녁 — 코르티나 시내',p:'cortina',dur:'1.5시간',d:'<p>숙소에 저녁이 없으니 시내에서 먹고 올라감. 또는 브라이에스 → 카르보닌 → 미주리나 → 트레 크로치로 바로(50분) 가서 숙소 레스토랑/테이크아웃.</p>',info:{대안:'브라이에스 → 숙소 직행 50분 (코르티나 안 거침)'}},
+  {t:'19:15',w:'숙소 복귀',p:'hoteltc',dur:'15분',d:'<p>내일 07:30 출발이니 짐 정리.</p>'}
+ ],
+ m:[['트레 크로치 숙소 → 미주리나','15분'],['미주리나 → 아우론초 산장','20분 (유료도로)'],['산장 → 미주리나','20분'],['미주리나 → 브라이에스','1시간 (도비아코 경유)'],['브라이에스 → 란드로 → 코르티나','1시간'],['코르티나 → 트레 크로치 숙소','15분'],['(직행) 브라이에스 → 카르보닌 → 숙소','50분']],
+ food:['아우론초 산장: 아침 커피·스트루델','브라이에스 호숫가: 남티롤식 점심','코르티나: 산장식 파스타'],
+ pack:['새벽 0℃ — 패딩·장갑·모자 필수','현금(산장 화장실 €1·보트)','보온병 커피'],
+ extra:['시간 남으면 프라토 피아차 고원(브라이에스에서 30분, 차로 올라가는 초원 · 크리스탈로 정면 · 평지) — 10월 도로 통제 없음, 현장 확인','아침 날씨가 나쁘면 트레치메 슬롯을 오후로 바꾸고(예약 수정) 브라이에스부터']},
+
+{d:'10/07',dow:'수',ph:'west',sun:'일출 07:24 · 일몰 18:40',title:'파소 지아우 → 오르티세이 · 세체다 · 알페 디 시우시',stay:'오르티세이 (서부 1/2박)',mode:'렌터카 + 케이블카·곤돌라',
+ sum:'코르티나를 떠나 파소 지아우 정상 전망을 보고 고갯길로 서부 이동. 오르티세이에서 세체다(산장 점심)와 알페 디 시우시 두 리프트 후 16시 반이면 호텔 — 스파와 저녁을 여유 있게.',
+ alert:'<b>세체다 케이블카는 2026년부터 30분 단위 시간 슬롯 온라인 예약제.</b> 10:30 슬롯 예매(운행 08:30~17:30). 정상역에서 능선 전망 포인트까지 완만한 15~20분. 알페 디 시우시 곤돌라는 18:00 마감.',
+ tip:'숙소 07:00 조식 → 07:30 출발 → 파소 지아우 08:20(정상 주차, 누볼라우·라 구셀라 조망 20분) → 셀바 디 카도레 → 콜레 산타 루치아 → 아라바 → 코르바라 → 파소 가르데나 → 오르티세이 10:10. 팔차레고 경로보다 25분 길지만 지아우가 돌로미티 고개 중 가장 사진이 좋음. 세체다·알페 디 시우시 승강장은 차로 5분 거리.',
+ s:[
+  {t:'07:30',w:'트레 크로치 숙소 → 코르티나 → 파소 지아우',p:'giau',dur:'1시간 10분',d:'<p>고개에서 코르티나 15분, 시내를 지나 35분 산길. 정상(2,236m) 주차장에서 누볼라우·라 구셀라·크로다 다 라고 파노라마, 걷기 0분. 아침 빛이 좋음. 정상 산장 카페.</p>',info:{주차:'무료',걷기:'없음'},tags:['걷기 없음','아침 추천']},
+  {t:'08:30',w:'지아우 → 아라바 → 파소 가르데나 → 오르티세이',p:'gardena',dur:'1시간 40분',d:'<p>콜레 산타 루치아·아라바·코르바라를 지나 파소 가르데나(2,136m) 정상 잠깐 정차, 셀라 산군 조망.</p>'},
+  {t:'10:30',w:'세체다 케이블카 · 능선 전망 · 산장 점심',p:'seceda',dur:'3시간',d:'<p>오르티세이 → 푸르네스 → 세체다(2,456m) 15분. 능선에서 페르메다 첨봉 대표 풍경. 점심은 정상 부근 산장(소피·트로이어)에서 천천히.</p>',info:{운행:'~11/2, 08:30~17:30',요금:'왕복 약 €70',예약:'온라인 시간 슬롯 필수'},tags:['예약 필수','정상 체감 5℃ 이하']},
+  {t:'13:45',w:'알페 디 시우시 곤돌라 · 초원 휴식',p:'siusi',dur:'2.5시간',d:'<p>시내 남쪽 승강장 → 몬트 세우크(2,005m) 15분. 정상역 앞 초원에서 사소 룽고·실리아르, 산장 카페. 오후 빛이 사소 룽고 정면.</p>',info:{운행:'~11/1, 08:30~18:00',요금:'왕복 €30대',예약:'불필요'},tags:['평지']},
+  {t:'16:30',w:'호텔 체크인 · 스파 · 저녁',p:'ortisei',dur:'',d:'<p>짐 풀고 스파. 19:00 호텔 저녁(하프보드).</p>'}
+ ],
+ m:[['트레 크로치 숙소 → 코르티나 → 파소 지아우','50분'],['지아우 → 파소 가르데나 → 오르티세이','1시간 40분'],['세체다 승강장 ↔ 알페 디 시우시 승강장','차 5분']],
+ food:['산장 점심: 카네덜리, 슈페크','호텔 저녁(하프보드)'],
+ pack:['케이블카 예약 QR','현금(산장)','장갑·모자','멀미약(고개 3개)'],
+ extra:['체력 남으면 레시에사 케이블카(~10/11) 노을 — 호텔 저녁 전','짐이 많으면 세체다 전 호텔에 먼저 맡기기(10:00 경유)']},
+
+{d:'10/08',dow:'목',ph:'west',sun:'일출 07:25 · 일몰 18:38',title:'사스 포르도이 · QC Terme · 카레짜 호수',stay:'오르티세이 (서부 2/2박)',mode:'렌터카 + 케이블카',
+ sum:'호텔 조식 후 파소 셀라·포르도이 고개를 넘어 "돌로미티의 테라스" 사스 포르도이(2,950m)에 케이블카로 올라 마르몰라다·셀라·사소 룽고 360°. 이어 QC Terme에서 3시간 온천과 웰니스 런치, 오후엔 카레짜 호수 물빛. 17시 호텔 복귀.',
+ alert:'QC Terme Dolomiti 운영 <b>09:00~22:00</b>. 입장권 온라인 사전 구매, <b>웰니스 런치(€29, 12:00~15:00) 예약</b>. 수영복·슬리퍼. 사스 포르도이 케이블카는 보통 11월 초까지 09:00~17:00 운행이지만 강풍 시 중단 — 당일 아침 확인. 2,950m는 체감 영하 가능.',
+ tip:'호텔 조식 07:30 → 08:15 출발 → 파소 셀라(정상 정차) → 파소 포르도이 09:10. 케이블카 4분, 정상 테라스에서 30~40분이면 충분(걷기 없음). 카나체이 → 포차 디 파사 QC Terme 20분. 카레짜는 QC에서 25분(코스타룽가 고개), 오르티세이 복귀는 볼차노 경유 1시간.',
+ s:[
+  {t:'08:15',w:'오르티세이 → 파소 셀라 → 파소 포르도이',p:'sella',dur:'55분',d:'<p>파소 셀라(2,218m) 정상 잠깐 정차, 사소 룽고 정면. 셀라 산군을 돌아 포르도이 고개(2,239m).</p>',info:{주차:'고개 무료'},tags:['걷기 없음']},
+  {t:'09:15',w:'사스 포르도이 케이블카 — 돌로미티의 테라스',p:'pordoi',dur:'1시간 15분',d:'<p>4분 만에 2,950m. 정상역 테라스에서 마르몰라다 빙하·셀라·사소 룽고·마르몰라다까지 360°. 리푸조 마리아 카페. 걷기 없이 돌로미티 최고 고도 전망.</p>',info:{운행:'~11월 초, 09:00~17:00 (당일 확인)',요금:'왕복 약 €30',주차:'고개 무료'},tags:['걷기 없음','영하 가능']},
+  {t:'11:00',w:'QC Terme Dolomiti — 온천 · 웰니스 런치',p:'qcterme',dur:'3시간',d:'<p>실내외 온천풀, 사우나, 숲속 야외탕, 휴식실. 12:00~ 웰니스 런치(예약). 부모님은 야외 온수풀·휴식실 위주로.</p>',info:{운영:'09:00~22:00',입장:'약 €50 내외 (온라인)',점심:'웰니스 런치 €29 예약'},tags:['온라인 예매','수영복 지참']},
+  {t:'14:30',w:'카레짜 호수 — 전망 데크 · 둘레길 · 카페',p:'carezza',dur:'1.5시간',d:'<p>QC에서 25분. 해발 1,520m, 오후 빛에 라테마르 반영이 가장 진함. 주 전망 데크 → 둘레길(평지 20~30분) → 서쪽 데크. 코스타룽가 고개 호텔 테라스 커피.</p>',info:{주차:'유료(시간당)',관람:'데크·둘레길'},tags:['평지','오후 물빛']},
+  {t:'16:00',w:'카레짜 → 오르티세이 · 스파 · 저녁',p:'ortisei',dur:'1시간',d:'<p>볼차노 경유. 17:00 호텔, 스파 후 19:00 저녁. 내일 08:15 출발.</p>'}
+ ],
+ m:[['오르티세이 → 파소 셀라 → 파소 포르도이','55분'],['포르도이 → QC Terme','25분'],['QC Terme → 카레짜','25분'],['카레짜 → 오르티세이','1시간 (볼차노 경유)']],
+ food:['사스 포르도이: 리푸조 마리아 커피','QC 웰니스 런치','호텔 저녁(하프보드)'],
+ pack:['수영복·슬리퍼','정상 패딩·장갑(2,950m)','선글라스'],
+ extra:['온천을 더 하고 싶으면 카레짜를 1시간으로','시간 남으면 볼차노 발터 광장 30분']},
+
+{d:'10/09',dow:'금',ph:'milan',sun:'일출 07:32 · 일몰 18:47',title:'발 디 푸네스 → 리바 델 가르다 → 밀라노 · 차 반납',stay:'밀라노 시내 (1/3박)',mode:'렌터카 → 지하철',
+ sum:'운전 마지막 날. 호텔 조식 후 발 디 푸네스의 산타 막달레나 교회 전망(오들레 산군)을 보고 산을 내려와 리바 델 가르다에서 점심·호숫가, 오후 밀라노 첸트랄레에서 차 반납. 남은 3일은 대중교통.',
+ alert:'<b>밀라노 Area C(ZTL)</b>는 평일 07:30~19:30 카메라 단속(사전 등록 €7.5). 첸트랄레역 Hertz(Via Sammartini 쪽)는 Area C 밖이니 차부터 반납하고 지하철로 숙소. 반납 영업시간·풀탱크 조건 확인, 진입 전 주유. 금요일 오후 밀라노 외곽 정체 잦으니 리바 출발을 13:30으로(Hertz 금요일 마감 시간 확인).',
+ tip:'오르티세이 → 발 디 푸네스 40분(폰테 가르데나 → 키우사 → 푸네스 계곡). 산타 막달레나 교회 전망 포인트는 마을 위 도로변(5분 걷기), 라누이 교회는 주차 후 평지 5분. 푸네스 → A22 → 리바 2시간 10분. 리바는 호숫가 유료 주차 후 도보(평지). 리바 → 밀라노 A22·A4 2시간 45분, 통행료 약 €30.',
+ s:[
+  {t:'08:15',w:'호텔 조식 · 체크아웃 · 출발',p:'ortisei',dur:''},
+  {t:'08:55',w:'발 디 푸네스 — 산타 막달레나 · 라누이 교회',p:'funes',dur:'1시간',d:'<p>오들레 산군을 배경으로 한 산타 막달레나 교회 — 마을 위 도로변 전망 포인트(주차 후 5분). 이어 라누이 성 요한 교회(주차장에서 평지 5분, 촬영 소액 입장료). 돌로미티에서 가장 유명한 사진 두 장을 걷지 않고.</p>',info:{주차:'유료 소규모',걷기:'평지 5분×2'},tags:['평지','사진']},
+  {t:'12:00',w:'리바 델 가르다 — 호숫가 · 점심',p:'riva',dur:'1.5시간',d:'<p>절벽에 둘러싸인 호수 북단. 항구 광장(피아차 3 노벰브레), 아포날레 탑, 호숫가 산책로 — 전부 평지. 올리브·레몬 나무. 12:00 호숫가 테라스 점심 후 산책. 시간 남으면 바스티오네 엘리베이터(2분) 전망.</p>',info:{주차:'호숫가 유료',걷기:'평지 30분'},tags:['평지']},
+  {t:'13:30',w:'밀라노로 이동',dur:'2시간 45분',d:'<p>A22 → A4. 진입 전 주유(풀탱크 조건).</p>'},
+  {t:'16:15',w:'첸트랄레역 Hertz 반납',p:'centrale',dur:'30분',d:'<p>연료·흠집 사진. 반납 후 지하철 M2/M3. 1회권 €2.2, 3일권 €13(2026 확인).</p>',tags:['연료·차량 사진']},
+  {t:'17:00',w:'밀라노 숙소 체크인 · 휴식',dur:''},
+  {t:'18:30',w:'저녁 — 숙소 근처',dur:'',d:'<p>아페리티보(18~20시, 음료값에 안주 포함) 후 리소토 알라 밀라네제·코톨레타.</p>'}
+ ],
+ m:[['오르티세이 → 발 디 푸네스','40분'],['푸네스 → 리바 델 가르다','2시간 10분'],['리바 → 밀라노 첸트랄레','2시간 45분']],
+ food:['리바: 호수 생선(라바렐로), 가르다 올리브오일','밀라노: 리소토, 코톨레타, 오소부코'],
+ pack:['통행료 카드','밀라노 숙소 주소·지하철 저장'],
+ extra:['반납 마감이 이르면 리바를 1시간으로 줄이거나 시르미오네(A4 옆)로 대체','푸네스에서 시간 남으면 키우사 구시가지 20분']},
+
+{d:'10/10',dow:'토',ph:'milan',sun:'일출 07:34 · 일몰 18:45',title:'코모 호수 · 벨라조 당일치기',stay:'밀라노 시내 (2/3박)',mode:'기차 + 페리',
+ sum:'기차 40분으로 코모, 쾌속 페리로 벨라조에서 반나절. 코모로 돌아와 브루나테 푸니쿨라 노을을 보고 밀라노로.',
+ alert:'페리는 10월 <b>비수기 시간표</b>(편수 감소). 코모→벨라조 쾌속선 45분, 완행 2시간. navigazionelaghi.it에서 왕복 편을 먼저 정하고 기차를 맞추세요. 토요일이라 붐빕니다.',
+ tip:'첸트랄레 → 코모 산 조반니 Trenord 직행 약 40분(앱·자판기, 개찰). 역에서 선착장까지 내리막 도보 15분(택시 5분). 벨라조는 계단 골목이 많으니 호숫가 산책로·빌라 멜치 정원 위주로.',
+ s:[
+  {t:'08:00',w:'첸트랄레 → 코모',p:'centrale',dur:'40분'},
+  {t:'09:00',w:'코모 선착장 → 벨라조 쾌속 페리',p:'como',dur:'45분',d:'<p>갑판 오른쪽(동쪽) 자리 추천. 체르노비오·트레메초 빌라들을 지나갑니다.</p>',info:{요금:'편도 약 €15~18'}},
+  {t:'10:00',w:'벨라조 · 빌라 멜치 · 호숫가 점심',p:'bellagio',dur:'4시간',d:'<p>산 자코모 성당, 호숫가 산책로, <b>빌라 멜치 정원</b>(평지 20분, €10 내외, 보통 10월까지). 12:00 호숫가 테라스 점심.</p>',tags:['빌라 멜치 개방 확인']},
+  {t:'14:00',w:'페리 → 코모 · 브루나테 푸니쿨라',p:'comocity',dur:'2.5시간',d:'<p>코모 도착 후 호숫가 역에서 브루나테 푸니쿨라 7분 — 정상 전망대에서 호수 남단 전경, 카페. 걷기 거의 없음. 코모 대성당(선착장 뒤) 잠깐.</p>',info:{푸니쿨라:'왕복 €6~7, 15분 간격'},tags:['걷기 없음']},
+  {t:'16:45',w:'코모 → 밀라노',p:'centrale',dur:'40분'},
+  {t:'18:00',w:'나빌리 운하 아페리티보 · 저녁',p:'navigli',dur:'',d:'<p>M2 포르타 제노바. 해 질 때 운하 야경, 아페리티보 후 저녁.</p>'}
+ ],
+ m:[['첸트랄레 → 코모 S.G.','기차 40분'],['코모 ↔ 벨라조','쾌속 페리 45분'],['코모 → 밀라노','기차 40분']],
+ food:['벨라조: 호수 생선 리소토','나빌리: 아페리티보 뷔페'],
+ pack:['페리 시간표 캡처','호수 바람 — 겉옷'],
+ extra:['피곤하면 브루나테 생략 → 15:00 기차로 밀라노','코모 대성당 (선착장 도보 3분, 무료)']},
+
+D_DUOMO,
+D_SHOP_OUT
+];
+
+const CHECK_A=[
+ {h:'출발 전 반드시 (마감 있음)',items:[
+  {w:'트레치메 유료도로 주차 예약',when:'10/06 08:00~08:30 슬롯 — 이미 오픈(9/6~), 지금 예약',s:'seethedolomites.com · 승용차 €40 / 12h · 차량 번호판(전날까지 수정)'},
+  {w:'세체다 케이블카 시간 슬롯 예매',when:'10/07 10:30',s:'seceda.it'},
+  {w:'QC Terme Dolomiti 입장권 + 웰니스 런치 예약',when:'10/08 11:00 입장 · 12:00 런치',s:'qcterme.com'},
+  {w:'밀라노 두오모 루프탑 엘리베이터 시간권',when:'10/11 09:00 첫 타임',s:'duomomilano.it'},
+  {w:'(선택) 최후의 만찬 예약',when:'10/11 오후',s:'cenacolovinciano.org — 잔여 확인'},
+  {w:'베네치아 대성당 09:30 · 두칼레 궁전 10:15 시간권',when:'10/03',s:'basilicasanmarco.it · palazzoducale.visitmuve.it'},
+  {w:'아카데미아 미술관 · 페기 구겐하임 온라인 예매, 팔라초 그라시 전시 확인',when:'10/04 08:45 · 10:30 / 10/03 14:30',s:'gallerieaccademia.it · guggenheim-venice.it · palazzograssi.it'},
+  {w:'Hertz 예약 — 베네치아 공항 07:00 인수 / 첸트랄레 금요일 반납',when:'10/05 07:00 / 10/09 15:45',s:'국제운전면허증 발급 · 반납 지점 영업시간'},
+  {w:'B&B Hotel Passo Tre Croci 2박 확정 (조식만 — 저녁은 코르티나 시내)',when:'10/05~06',s:'호텔 레스토랑 저녁 운영 여부 확인, 안 되면 시내 식당 예약'},
+  {w:'오르티세이 호텔 2박 하프보드(조식·저녁) · 밀라노 숙소 3박',when:'10/07~08 / 10/09~11',s:'서부 호텔은 저녁 시간(보통 19:00~) 확인'},
+  {w:'베네치아 입장료 해당일 확인',when:'10/03~04',s:'cda.ve.it — 메스트레 숙박자 면제 등록'}
+ ]},
+ {h:'확인만 하면 되는 것',items:[
+  {w:'친퀘 토리(~10/11) · 라가주오이(~10/18) 운행',when:'10/05',s:'강풍·눈 시 중단'},
+  {w:'사스 포르도이 케이블카 운행(보통 ~11월 초)',when:'10/08 아침',s:'강풍 시 중단'},
+  {w:'트레치메 도로 개통 여부(눈) · 브라이에스 보트 10월 운영',when:'10/05 저녁',s:''},
+  {w:'코모–벨라조 페리 토요일 시간표 · Trenord 기차',when:'10/10',s:'navigazionelaghi.it'},
+  {w:'빌라 멜치 정원 개방일',when:'10/10',s:''},
+  {w:'항공편 터미널(말펜사 T1/T2)',when:'10/12',s:''}
+ ]},
+ {h:'준비물',items:[
+  {w:'바닥 좋은 운동화 · 바람막이 · 얇은 패딩 · 장갑·모자',when:'',s:'산장·정상 체감 0~5℃, 도심 12~20℃'},
+  {w:'수영복·슬리퍼 (QC Terme)',when:'',s:''},
+  {w:'국제운전면허증 + 국내면허 + 여권 + 신용카드',when:'',s:''},
+  {w:'현금 소액(유로)',when:'',s:'산장 화장실·주차 정산기'},
+  {w:'eSIM/유심(우버용), 보조배터리, 멀미약',when:'',s:''}
+ ]}
+];
+
+const PLANS=[
+ {id:'a',name:'베네치아 IN · 밀라노 OUT',sub:'2026.10.02 – 10.12',days:DAYS_A,check:CHECK_A}
+];
+let planIdx=0, DAYS=DAYS_A, CHECK=CHECK_A;
+
+/* ---------- map ---------- */
+let map=null, baseLayer=null, hiLayer=null;
+try{
+  map=L.map('map',{zoomControl:true,scrollWheelZoom:false}).setView([46.1,11.0],7);
+  const light=L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',{attribution:'&copy; OpenStreetMap &copy; CARTO',maxZoom:18});
+  const topo=L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap, SRTM | &copy; OpenTopoMap (CC-BY-SA)',maxZoom:17});
+  light.addTo(map);
+  L.control.layers({'깔끔한 지도':light,'지형 지도':topo},null,{position:'topright',collapsed:window.innerWidth<=860}).addTo(map);
+  baseLayer=L.layerGroup().addTo(map); hiLayer=L.layerGroup().addTo(map);
+  // "전체 보기" 버튼
+  const Ctl=L.Control.extend({onAdd(){const d=L.DomUtil.create('div','leaflet-bar mapbtn');d.innerHTML='<a href="#" title="전체 경로 보기">전체 보기</a>';L.DomEvent.on(d,'click',e=>{L.DomEvent.stop(e);fitAll();});return d;}});
+  new Ctl({position:'topleft'}).addTo(map);
+}catch(e){
+  document.getElementById('map').innerHTML='<div style="padding:24px;color:#4A5C62;font-size:14px">지도는 인터넷에 연결되어 있을 때 표시됩니다. 아래 일정은 오프라인에서도 볼 수 있어요.</div>';
+}
+function pin(color,label,big){const sz=big?28:22;return L.divIcon({className:'',iconSize:[sz,sz],iconAnchor:[sz/2,sz],popupAnchor:[0,-sz+2],html:`<div class="pin ${big?'big':''}" style="background:${color};width:${sz}px;height:${sz}px"><b>${label}</b></div>`});}
+function dayLabel(text,color){return L.divIcon({className:'',iconSize:[0,0],iconAnchor:[-14,26],html:`<div class="daylabel" style="border-color:${color};color:${color}">${text}</div>`});}
+function stopsOf(day){const seen=new Set();return day.s.filter(x=>x.p&&!seen.has(x.p)&&seen.add(x.p));}
+let allBounds=[];
+function fitAll(){ if(map&&allBounds.length) map.fitBounds(allBounds,{padding:[30,30],maxZoom:8}); }
+function drawBase(){
+  if(!map)return; baseLayer.clearLayers(); allBounds=[]; let prev=null;
+  DAYS.forEach((day,di)=>{
+    const c=PHASE[day.ph], st=stopsOf(day), pts=st.map(x=>P[x.p].ll); if(!pts.length)return;
+    if(prev)L.polyline([prev,pts[0]],{color:'#9AA8AC',weight:2,opacity:.6,dashArray:'4 6',interactive:false}).addTo(baseLayer);
+    L.polyline(pts,{color:'#9AA8AC',weight:3,opacity:.7,interactive:false}).addTo(baseLayer);
+    st.forEach((x,j)=>{
+      const m=L.circleMarker(P[x.p].ll,{radius:5,color:'#fff',weight:1.5,fillColor:c,fillOpacity:.85}).addTo(baseLayer);
+      m.bindTooltip(`${day.d}(${day.dow}) · ${P[x.p].n}`,{direction:'top',offset:[0,-4]});
+      m.on('click',()=>select(di));
+      if(j===0) L.marker(P[x.p].ll,{icon:dayLabel(day.d.slice(3)+'일',c),interactive:false}).addTo(baseLayer);
+      allBounds.push(P[x.p].ll);
+    });
+    prev=pts[pts.length-1];
+  });
+}
+function draw(i){
+  if(!map)return; hiLayer.clearLayers();
+  if(i===null){ fitAll(); return; }
+  const day=DAYS[i], c=PHASE[day.ph], st=stopsOf(day), pts=st.map(x=>P[x.p].ll), b=[];
+  // 이전 날 마지막 지점에서 오는 연결선도 강조(점선)
+  const prevDay=DAYS[i-1]; if(prevDay){const ps=stopsOf(prevDay); if(ps.length&&pts.length) L.polyline([P[ps[ps.length-1].p].ll,pts[0]],{color:c,weight:3,opacity:.5,dashArray:'5 7'}).addTo(hiLayer);}
+  L.polyline(pts,{color:'#fff',weight:8,opacity:.9}).addTo(hiLayer);
+  L.polyline(pts,{color:c,weight:4,opacity:1}).addTo(hiLayer);
+  st.forEach((x,j)=>{
+    L.marker(P[x.p].ll,{icon:pin(c,String(j+1),true),zIndexOffset:1000})
+     .bindPopup(`<b>${P[x.p].n}</b><br>${day.d}(${day.dow}) ${x.t} · ${x.w}`).addTo(hiLayer);
+    b.push(P[x.p].ll);
+  });
+  if(b.length) map.fitBounds(b,{padding:[50,50],maxZoom:11});
+}
+/* ---------- rail ---------- */
+const nav=document.getElementById('days');
+const planBar=document.getElementById('plans');
+function buildNav(){
+  planBar.innerHTML=PLANS.length>1?PLANS.map((p,i)=>`<button class="plan-btn ${i===planIdx?'active':''}" data-i="${i}"><b>${p.name}</b><span>${p.sub}</span></button>`).join(''):'';
+  nav.innerHTML=`<button class="day-btn util" data-i="all"><span class="d-title">전체 경로</span></button>
+<button class="day-btn util" data-i="check"><span class="d-title">예약 · 준비 체크리스트</span></button><div class="rail-sep"></div>`+
+   DAYS.map((d,i)=>`<button class="day-btn" data-i="${i}" style="--c:${PHASE[d.ph]}"><span class="d-date">${d.d}<small>${d.dow}</small></span><span><span class="d-title">${d.title}</span><span class="d-sub">${d.stay}</span></span></button>`).join('');
+}
+planBar.addEventListener('click',e=>{const b=e.target.closest('.plan-btn');if(!b)return;planIdx=+b.dataset.i;DAYS=PLANS[planIdx].days;CHECK=PLANS[planIdx].check;buildNav();select(null);});
+nav.addEventListener('click',e=>{const b=e.target.closest('.day-btn');if(!b)return;select(b.dataset.i==='all'?null:b.dataset.i==='check'?'check':+b.dataset.i);});
+buildNav();
+
+/* ---------- detail ---------- */
+const detail=document.getElementById('detail');
+function kv(o){return (o&&Object.keys(o).length)?`<dl class="kv">${Object.entries(o).map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('')}</dl>`:'';}
+function tags(a,c){return a?`<div>${a.map(t=>`<span class="badge ${/필수/.test(t)?'must':''}">${t}</span>`).join('')}</div>`:'';}
+function iconOf(x){
+  const k=x.p||'', w=x.w||'';
+  if(/qcterme/.test(k)||/온천|Terme/.test(w))return '♨️';
+  if(/torri|falz|seceda|siusi|sella|gardena/.test(k)||/케이블카|곤돌라|리프트|푸니쿨라/.test(w))return '🚡';
+  if(/misur|braies|dobbi|landro|carezza|riva|bellagio|comocity|lugano|burano|murano/.test(k)||/호수/.test(w))return '🏞️';
+  if(/페리|바포레토/.test(w))return '⛴️';
+  if(/체크인|체크아웃|숙소/.test(w))return '🏨';
+  if(/공항|Hertz|반납|Express/.test(w))return '✈️';
+  if(/출발|→|이동|드라이브/.test(w))return '🚗';
+  if(/점심|저녁|브런치|아페리티보/.test(w))return '🍽️';
+  if(/두오모|성당|갤러리아|성 |광장|거리|지구|산책/.test(w))return '🏛️';
+  return '📍';
+}
+function dayChips(d){
+  const lifts=d.s.filter(x=>iconOf(x)==='🚡').length;
+  const musts=d.s.filter(x=>(x.tags||[]).some(t=>/필수/.test(t))).length;
+  const lakes=d.s.filter(x=>iconOf(x)==='🏞️').length;
+  const first=d.s[0]?d.s[0].t:'';
+  const walk=d.s.some(x=>(x.tags||[]).some(t=>/트레킹/.test(t)))?'걷기 보통':(d.s.some(x=>(x.tags||[]).some(t=>/평지/.test(t)))?'걷기 평지만':'걷기 거의 없음');
+  return `<div class="chips"><span class="chip">🕖 출발 ${first}</span>${lifts?`<span class="chip">🚡 리프트 ${lifts}개</span>`:''}${lakes?`<span class="chip">🏞️ 호수·물가 ${lakes}곳</span>`:''}<span class="chip">🚶 ${walk}</span><span class="chip">🚗 이동 ${d.m.length}구간</span>${musts?`<span class="chip hot">🎫 예약 필수 ${musts}</span>`:''}</div>`;
+}
+function stopCard(x,c){
+  const has=x.p, name=has?P[x.p].n:'';
+  const infoEntries=x.info?Object.entries(x.info):[];
+  const headInfo=infoEntries.slice(0,2).map(([k,v])=>`<b>${k}</b> ${v}`).join(' · ');
+  const moreInfo=infoEntries.slice(2);
+  const body=(x.d||'')+kv(moreInfo.length?Object.fromEntries(moreInfo):null)+(x.alt?`<p><b>대안</b> ${x.alt}</p>`:'')+(has?`<p><a class="more" target="_blank" rel="noopener" href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(P[x.p].wk||P[x.p].n)}">사진 더 보기</a></p>`:'');
+  const hasBody=(x.d||moreInfo.length||x.alt);
+  return `<li class="stop ${has?'is-stop':''}"><div class="tm">${x.t}</div>
+   <div class="sc"><div class="sc-head ${has?'':'nothumb'}">
+     ${has?`<img class="thumb" data-pk="${x.p}" alt="">`:''}
+     <div><div class="sc-title">${iconOf(x)} ${has?`<button class="goto" data-p="${x.p}">${x.w}</button>`:x.w}${x.dur?`<span class="dur"> · ${x.dur}</span>`:''}</div>
+     <div class="sc-sub">${has&&name!==x.w?name:''}${headInfo?(has&&name!==x.w?' · ':'')+headInfo:''}</div>
+     ${(x.tags&&x.tags.length)?`<div class="sc-tags">${tags(x.tags)}</div>`:''}</div>
+   </div>
+   ${hasBody?`<details><summary>자세히</summary><div class="sc-body">${has?`<div class="ph-wrap"><img class="ph" data-pk="${x.p}" alt="${name}"><span class="cred" hidden></span></div>`:''}${body}</div></details>`:''}
+   </div></li>`;
+}
+function render(i){
+  if(i==='check'){
+    detail.innerHTML=`<div class="detail-head"><h2>예약 · 준비 체크리스트</h2><span class="stay">체크 상태는 이 브라우저에서만 저장됩니다</span></div>`+
+     CHECK.map((g,gi)=>`<div class="chk-h">${g.h}</div><ul class="chk">${g.items.map((it,k)=>{const id=`${PLANS[planIdx].id}_c${gi}_${k}`;return`<li><input type="checkbox" id="${id}"><label for="${id}">${it.w}${it.when?` <span class="when">· ${it.when}</span>`:''}${it.s?`<small>${it.s}</small>`:''}</label></li>`;}).join('')}</ul>`).join('');
+    detail.querySelectorAll('input').forEach(c=>{try{c.checked=localStorage.getItem('trip_'+c.id)==='1';c.addEventListener('change',()=>localStorage.setItem('trip_'+c.id,c.checked?'1':'0'));}catch(e){}});
+    return;
+  }
+  if(i===null){
+    // 숙박 구간 띠
+    const segs=[]; DAYS.forEach((d,k)=>{const key=d.stay.replace(/\s*\(.*$/,''); if(!key||key==='—')return; const last=segs[segs.length-1]; if(last&&last.key===key){last.n++;last.to=k;} else segs.push({key,n:1,from:k,to:k,ph:d.ph});});
+    detail.innerHTML=`<div class="detail-head"><h2>전체 일정 한눈에</h2><span class="stay">날짜를 누르면 그날 상세 · 지도의 회색 점을 눌러도 이동</span></div>
+    <div class="strip">${segs.map(g=>`<div class="seg" style="--c:${PHASE[g.ph]}"><b>${g.n}박 · ${g.key}</b><span>${DAYS[g.from].d}${g.n>1?' ~ '+DAYS[g.to].d:''}</span></div>`).join('')}</div>
+    <ul class="ovlist">${DAYS.map((d,k)=>{const hl=d.s.filter(x=>x.p&&iconOf(x)!=='🏨'&&iconOf(x)!=='🚗').slice(0,4).map(x=>iconOf(x)+' '+(x.w.length>18?x.w.slice(0,18)+'…':x.w)).join('  ');
+      return `<li data-i="${k}" style="--c:${PHASE[d.ph]}"><div class="od">${d.d}<small>${d.dow}요일</small></div><div><div class="ot">${d.title}</div><div class="oi">${hl}</div><div class="os">🏨 ${d.stay} · ${d.mode}</div></div></li>`;}).join('')}</ul>`;
+    detail.querySelectorAll('.ovlist li').forEach(b=>b.addEventListener('click',()=>select(+b.dataset.i)));
+    return;
+  }
+  const d=DAYS[i],c=PHASE[d.ph], prev=DAYS[i-1], next=DAYS[i+1];
+  detail.innerHTML=`
+   <div class="detail-head"><h2>${d.d} (${d.dow}) ${d.title}</h2><span class="stay">🏨 ${d.stay}</span>${d.sun?`<span class="stay">☀ ${d.sun}</span>`:''}</div>
+   ${dayChips(d)}
+   <p class="summary">${d.sum}</p>
+   ${d.alert?`<div class="alert">${d.alert}</div>`:''}
+   <div class="tip" style="--c:${c}">${d.tip}</div>
+   <div class="cols" style="--c:${c}">
+    <ul class="stops">${d.s.map(x=>stopCard(x,c)).join('')}</ul>
+    <div class="side">
+     <section><h3>🚗 이동 구간</h3><ul class="moves">${d.m.map(([a,b])=>`<li><span>${a}</span><span>${b}</span></li>`).join('')}</ul><p class="plain" style="margin-top:8px"><b>수단</b> ${d.mode}</p></section>
+     <section><h3>🍽️ 이 지역 먹을 것</h3><ul class="dots">${d.food.map(f=>`<li>${f}</li>`).join('')}</ul></section>
+     <section><h3>🎒 챙길 것 · 주의</h3><ul class="dots">${d.pack.map(f=>`<li>${f}</li>`).join('')}</ul></section>
+     ${d.extra&&d.extra.length?`<section><h3>⏱ 시간·체력이 남으면</h3><ul class="dots">${d.extra.map(f=>`<li>${f}</li>`).join('')}</ul></section>`:''}
+    </div>
+   </div>
+   <div class="daynav">${prev?`<button data-i="${i-1}"><small>← 이전 날</small>${prev.d} ${prev.title}</button>`:'<span></span>'}${next?`<button data-i="${i+1}"><small>다음 날 →</small>${next.d} ${next.title}</button>`:'<span></span>'}</div>`;
+  detail.querySelectorAll('.daynav button').forEach(b=>b.addEventListener('click',()=>{select(+b.dataset.i);detail.scrollTop=0;}));
+  loadPhotos(detail);
+  detail.querySelectorAll('.goto').forEach(b=>b.addEventListener('click',()=>{
+    const ll=P[b.dataset.p].ll; if(!map)return; map.flyTo(ll,13,{duration:.8});
+    hiLayer.eachLayer(l=>{if(l.getLatLng&&l.getLatLng().lat===ll[0]&&l.getLatLng().lng===ll[1])l.openPopup();});
+  }));
+}
+/* ---------- photos: 직접 지정 → Wikipedia → Wikimedia Commons 검색 → Openverse ---------- */
+const PH={};
+async function restSummary(lang,title){
+  const r=await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+  if(!r.ok)return null; const j=await r.json();
+  if(j.type==='disambiguation')return null;
+  const th=j.thumbnail?j.thumbnail.source:null;
+  if(!th||/\.(svg|png)(\?|$)/i.test(th))return null;   // 지도·문장(紋章) 같은 그래픽은 건너뜀
+  // 원본이 아니라 리사이즈된 썸네일 주소(…/900px-…)를 써야 안정적으로 로드됨
+  const big=/\/\d+px-/.test(th)?th.replace(/\/\d+px-/,'/900px-'):th;
+  return {src:big,thumb:th,cred:'Wikipedia'};
+}
+async function commonsSearch(q){
+  const u=`https://commons.wikimedia.org/w/api.php?action=query&generator=search&gsrnamespace=6&gsrsearch=${encodeURIComponent(q+' filetype:bitmap')}&gsrlimit=8&prop=imageinfo&iiprop=url|mime&iiurlwidth=900&format=json&origin=*`;
+  const r=await fetch(u); if(!r.ok)return null; const j=await r.json();
+  const pages=Object.values((j.query||{}).pages||{}).sort((a,b)=>a.index-b.index);
+  for(const p of pages){const ii=(p.imageinfo||[])[0]; if(ii&&/^image\/(jpeg|webp)/.test(ii.mime)) return {src:ii.thumburl||ii.url,thumb:ii.thumburl||ii.url,cred:'Wikimedia Commons'};}
+  return null;
+}
+async function openverse(q){
+  const u=`https://api.openverse.org/v1/images/?q=${encodeURIComponent(q)}&page_size=5&license_type=all-cc&mature=false`;
+  const r=await fetch(u,{headers:{'Accept':'application/json'}}); if(!r.ok)return null; const j=await r.json();
+  const it=(j.results||[]).find(x=>x.url&&/\.(jpe?g|webp)$/i.test(x.url)||x.thumbnail);
+  return it?{src:it.url,thumb:it.thumbnail||it.url,cred:'Openverse · '+(it.creator||'')}:null;
+}
+function photoFor(key){
+  if(PH[key])return PH[key];
+  PH[key]=(async()=>{
+    const my=(MY_PHOTOS[key]||'').trim();
+    if(my)return {src:my,thumb:my,cred:''};
+    const pl=P[key]; const q=pl.it||pl.wk||pl.n; const tries=[];
+    if(pl.wk)tries.push(()=>restSummary('en',pl.wk));
+    if(pl.it)tries.push(()=>restSummary('it',pl.it));
+    tries.push(()=>commonsSearch(q));
+    if(pl.wk&&pl.wk!==q)tries.push(()=>commonsSearch(pl.wk));
+    tries.push(()=>openverse(q+' Italy'));
+    for(const f of tries){ try{const r=await f(); if(r)return r;}catch(e){} }
+    return null;
+  })();
+  return PH[key];
+}
+function loadPhotos(root){
+  root.querySelectorAll('img[data-pk]').forEach(async img=>{
+    const key=img.dataset.pk; const p=await photoFor(key);
+    if(p){ img.src=img.classList.contains('thumb')?p.thumb:p.src;
+      img.onerror=()=>{ if(img.src!==p.thumb){img.src=p.thumb;} else {img.remove();} };
+      const c=img.parentElement.querySelector('.cred'); if(c&&p.cred){c.textContent=p.cred;c.hidden=false;} }
+    else if(img.classList.contains('thumb')) img.remove();
+    else { const w=img.parentElement; w.innerHTML=`<a class="ph-miss" target="_blank" rel="noopener" href="https://www.google.com/search?tbm=isch&q=${encodeURIComponent(P[key].wk||P[key].n)}">사진을 자동으로 찾지 못했어요 — 여기서 검색</a>`; }
+  });
+}
+function select(i){
+  nav.querySelectorAll('.day-btn').forEach(b=>b.classList.toggle('active',(i===null?'all':String(i))===b.dataset.i));
+  draw(i==='check'?null:i); render(i);
+  if(window.innerWidth<=860)document.getElementById('map').scrollIntoView({behavior:'smooth',block:'start'});
+}
+drawBase();
+select(null);
+</script>
+</body>
+</html>
